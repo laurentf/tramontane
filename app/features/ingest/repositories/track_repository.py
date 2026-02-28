@@ -2,12 +2,27 @@
 
 from __future__ import annotations
 
+from datetime import datetime
+from typing import TypedDict
 from uuid import UUID
 
 import asyncpg
-import structlog
 
-logger = structlog.get_logger(__name__)
+
+class TrackRow(TypedDict):
+    """Shape of a row from the tracks table."""
+
+    id: UUID
+    title: str
+    artist: str
+    album: str | None
+    duration_seconds: float | None
+    file_path: str
+    file_size_bytes: int | None
+    play_count: int
+    last_played_at: datetime | None
+    created_at: datetime
+    updated_at: datetime
 
 
 class TrackRepository:
@@ -51,16 +66,16 @@ class TrackRepository:
             )
         return track_id
 
-    async def get_by_file_path(self, file_path: str) -> dict | None:
+    async def get_by_file_path(self, file_path: str) -> TrackRow | None:
         """Look up a track by its file path."""
         async with self.pool.acquire(timeout=10) as conn:
             row = await conn.fetchrow(
                 "SELECT * FROM tracks WHERE file_path = $1",
                 file_path,
             )
-        return dict(row) if row else None
+        return dict(row) if row else None  # type: ignore[return-value]
 
-    async def list_all(self, *, limit: int = 200, offset: int = 0) -> list[dict]:
+    async def list_all(self, *, limit: int = 200, offset: int = 0) -> list[TrackRow]:
         """List tracks ordered by title."""
         async with self.pool.acquire(timeout=10) as conn:
             rows = await conn.fetch(
@@ -68,4 +83,4 @@ class TrackRepository:
                 limit,
                 offset,
             )
-        return [dict(r) for r in rows]
+        return [dict(r) for r in rows]  # type: ignore[misc]

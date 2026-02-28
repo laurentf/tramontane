@@ -6,6 +6,7 @@ import httpx
 import structlog
 
 from app.core.config import get_settings
+from app.features.radio.schemas.radio import PushStatus
 
 logger = structlog.get_logger(__name__)
 
@@ -47,14 +48,18 @@ async def push_track(file_path: str) -> dict[str, str]:
             harbor_url=harbor_url,
             msg="Cannot connect to Liquidsoap — is it running?",
         )
-        return {"status": "error", "message": "Cannot connect to Liquidsoap"}
+        return {"status": PushStatus.ERROR, "message": "Cannot connect to Liquidsoap"}
     except httpx.HTTPStatusError as exc:
         logger.error(
             "liquidsoap_http_error",
             harbor_url=harbor_url,
             status_code=exc.response.status_code,
         )
-        return {"status": "error", "message": f"Liquidsoap returned {exc.response.status_code}"}
+        msg = f"Liquidsoap returned {exc.response.status_code}"
+        return {"status": PushStatus.ERROR, "message": msg}
     except httpx.HTTPError:
         logger.exception("liquidsoap_push_error", harbor_url=harbor_url)
-        return {"status": "error", "message": "Failed to push track to Liquidsoap"}
+        return {"status": PushStatus.ERROR, "message": "Failed to push track to Liquidsoap"}
+    except ValueError:
+        logger.exception("liquidsoap_invalid_response", harbor_url=harbor_url)
+        return {"status": PushStatus.ERROR, "message": "Invalid response from Liquidsoap"}

@@ -5,7 +5,8 @@ Start worker:
 """
 
 import os
-from typing import ClassVar
+from collections.abc import Callable, Coroutine
+from typing import Any, ClassVar
 
 import structlog
 from arq.connections import RedisSettings
@@ -26,7 +27,7 @@ def _get_redis_settings() -> RedisSettings:
     return RedisSettings.from_dsn(redis_url)
 
 
-async def startup(ctx: dict) -> None:
+async def startup(ctx: dict[str, Any]) -> None:
     """Create shared resources for worker process."""
     from app.core.banner import print_service_line
     from app.core.database import create_pool
@@ -35,21 +36,21 @@ async def startup(ctx: dict) -> None:
     print_service_line("worker")
 
 
-async def shutdown(ctx: dict) -> None:
+async def shutdown(ctx: dict[str, Any]) -> None:
     """Clean up shared resources."""
     pool = ctx.get("pool")
     if pool:
         await pool.close()
 
 
-async def ping(ctx: dict) -> str:
+async def ping(ctx: dict[str, Any]) -> str:
     """Health check task."""
     return "pong"
 
 
 class WorkerSettings:
-    functions: ClassVar[list] = [ping]
-    cron_jobs: ClassVar[list] = []  # Add cron jobs here
+    functions: ClassVar[list[Callable[..., Coroutine[Any, Any, Any]]]] = [ping]
+    cron_jobs: ClassVar[list[Any]] = []
     on_startup = startup
     on_shutdown = shutdown
     redis_settings = _get_redis_settings()

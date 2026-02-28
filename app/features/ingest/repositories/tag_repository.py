@@ -2,12 +2,20 @@
 
 from __future__ import annotations
 
+from datetime import datetime
+from typing import TypedDict
 from uuid import UUID
 
 import asyncpg
-import structlog
 
-logger = structlog.get_logger(__name__)
+
+class TagRow(TypedDict):
+    """Shape of a row from the track_tags table."""
+
+    tag: str
+    category: str
+    source: str
+    created_at: datetime
 
 
 class TagRepository:
@@ -43,7 +51,7 @@ class TagRepository:
                     [(track_id, tag, category, source) for tag, category in tags],
                 )
 
-    async def get_by_track(self, track_id: UUID) -> list[dict]:
+    async def get_by_track(self, track_id: UUID) -> list[TagRow]:
         """Get all tags for a track."""
         async with self.pool.acquire(timeout=10) as conn:
             rows = await conn.fetch(
@@ -54,7 +62,7 @@ class TagRepository:
                 """,
                 track_id,
             )
-        return [dict(r) for r in rows]
+        return [dict(r) for r in rows]  # type: ignore[misc]
 
     async def find_tracks_by_tag(self, tag: str, *, limit: int = 50) -> list[UUID]:
         """Find track IDs that have a given tag."""

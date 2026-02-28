@@ -1,6 +1,15 @@
 """Pydantic schemas for radio API endpoints."""
 
+from enum import StrEnum
+
 from pydantic import BaseModel, Field
+
+
+class PushStatus(StrEnum):
+    """Status of a Liquidsoap push operation."""
+
+    OK = "ok"
+    ERROR = "error"
 
 
 class NowPlaying(BaseModel):
@@ -22,5 +31,5 @@ class TrackPushRequest(BaseModel):
 class TrackPushResponse(BaseModel):
     """Response from pushing a track to Liquidsoap."""
 
-    status: str = Field(..., description="Status of the push operation (ok, error)")
+    status: PushStatus = Field(..., description="Status of the push operation")
     message: str = Field(..., description="Descriptive message about the result")

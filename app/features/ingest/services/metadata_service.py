@@ -5,6 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 
 import structlog
+from mutagen import MutagenError
 from mutagen.easyid3 import EasyID3
 from mutagen.flac import FLAC
 from mutagen.id3 import ID3NoHeaderError
@@ -44,7 +45,7 @@ def read_metadata(filepath: Path) -> TrackMetadata:
             tags = dict(ogg) if ogg else {}
         else:
             logger.warning("unsupported_format_for_metadata", path=str(filepath), suffix=suffix)
-    except Exception:
+    except (MutagenError, OSError, ValueError):
         logger.exception("metadata_read_error", path=str(filepath))
 
     # Build tags from ID3 fields
@@ -52,17 +53,17 @@ def read_metadata(filepath: Path) -> TrackMetadata:
 
     # Genre tags — ID3 genre can contain multiple values
     for genre in tags.get("genre", []):
-        for g in genre.split(";"):
-            g = g.strip().lower()
-            if g:
-                track_tags.append(TrackTag(tag=g, category="genre", source="id3"))
+        for genre_val in genre.split(";"):
+            genre_val = genre_val.strip().lower()
+            if genre_val:
+                track_tags.append(TrackTag(tag=genre_val, category="genre", source="id3"))
 
     # Mood from comment or custom tags (some taggers put mood there)
     for mood in tags.get("mood", []):
-        for m in mood.split(";"):
-            m = m.strip().lower()
-            if m:
-                track_tags.append(TrackTag(tag=m, category="mood", source="id3"))
+        for mood_val in mood.split(";"):
+            mood_val = mood_val.strip().lower()
+            if mood_val:
+                track_tags.append(TrackTag(tag=mood_val, category="mood", source="id3"))
 
     return TrackMetadata(
         title=_first_or_default(tags.get("title"), "Unknown Title"),

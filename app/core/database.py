@@ -53,11 +53,13 @@ async def get_pool(
     return _pool  # type: ignore[return-value]
 
 
-def parse_jsonb(val: object) -> dict | list | None:
-    """Parse a JSONB value from asyncpg."""
+def parse_jsonb(val: str | dict | list | None) -> dict | list | None:
+    """Parse a JSONB value from asyncpg (string → parsed, already-parsed → passthrough)."""
     if val is None:
         return None
-    return json.loads(val) if isinstance(val, str) else val
+    if isinstance(val, str):
+        return json.loads(val)
+    return val
 
 
 def is_pool_closed(pool: asyncpg.Pool | None) -> bool:

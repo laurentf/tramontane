@@ -83,10 +83,11 @@ class IngestService:
                         source="id3",
                         tags=[(t.tag, t.category) for t in track.tags],
                     )
-
-                stored += 1
             except asyncpg.PostgresError:
-                logger.exception("track_upsert_failed", file_path=track.file_path)
+                logger.exception("track_store_failed", file_path=track.file_path)
+                continue
+
+            stored += 1
 
         logger.info(
             "scan_and_store_complete",

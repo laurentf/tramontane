@@ -7,7 +7,12 @@ from fastapi import APIRouter, Depends
 
 from app.core.exceptions import NotFoundError, ValidationError
 from app.core.security import get_current_user_id
-from app.features.radio.schemas.radio import NowPlaying, TrackPushRequest, TrackPushResponse
+from app.features.radio.schemas.radio import (
+    NowPlaying,
+    PushStatus,
+    TrackPushRequest,
+    TrackPushResponse,
+)
 from app.features.radio.services import icecast_client, liquidsoap_client
 
 logger = structlog.get_logger(__name__)
@@ -43,7 +48,7 @@ async def push_track(
         raise NotFoundError("Track file")
 
     result = await liquidsoap_client.push_track(str(track_path))
-    status = result.get("status", "error")
-    message = result.get("message", result.get("result", "Track pushed"))
+    status = PushStatus(result.get("status", PushStatus.ERROR))
+    message = result.get("message", "Track pushed")
 
-    return TrackPushResponse(status=status, message=str(message))
+    return TrackPushResponse(status=status, message=message)

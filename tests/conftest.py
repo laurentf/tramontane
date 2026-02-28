@@ -8,8 +8,11 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from asgi_lifespan import LifespanManager
 from httpx import ASGITransport, AsyncClient
+from slowapi import Limiter
 
-# Set test environment variables BEFORE importing main
+# Set test environment variables BEFORE importing app code.
+# pydantic-settings reads .env which has REDIS_URL pointing to a Docker Redis;
+# clearing the settings cache + swapping the limiter avoids any real Redis I/O.
 os.environ.setdefault("SUPABASE_URL", "https://test.supabase.co")
 os.environ.setdefault("SUPABASE_PUBLISHABLE_KEY", "test-publishable-key-1234567890")
 os.environ.setdefault("SUPABASE_SECRET_KEY", "test-secret-key-1234567890")
@@ -18,9 +21,14 @@ os.environ.setdefault("ADMIN_EMAILS", '["admin@test.com"]')
 os.environ.setdefault("DEBUG", "true")
 os.environ.setdefault("CORS_ORIGINS", '["http://localhost:3000"]')
 
+import app.core.rate_limit as _rl
 from app.core.config import Settings, get_settings
 from app.core.deps import get_db_pool, get_supabase_client
-from main import app
+
+get_settings.cache_clear()
+_rl.limiter = Limiter(key_func=_rl.get_user_id_or_ip, storage_uri="memory://")
+
+from main import app  # noqa: E402
 
 
 @pytest.fixture(scope="session")
@@ -116,7 +124,7 @@ async def async_client(
     try:
         with (
             patch("app.core.security._verify_token", side_effect=make_mock_verify()),
-            patch("main.asyncpg.create_pool", AsyncMock(return_value=mock_db_pool)),
+            patch("main.create_pool", AsyncMock(return_value=mock_db_pool)),
             patch("main.acreate_client", AsyncMock(return_value=mock_supabase_client)),
         ):
             async with LifespanManager(app):
