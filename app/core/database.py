@@ -2,14 +2,14 @@
 
 import asyncio
 import json
-import logging
 
 import asyncpg
+import structlog
 from asyncpg import InterfaceError
 
 from app.core.config import get_settings
 
-logger = logging.getLogger(__name__)
+logger = structlog.get_logger(__name__)
 
 # Module-level singleton pool for non-FastAPI processes (workers)
 _pool: asyncpg.Pool | None = None

@@ -1,18 +1,18 @@
 """JWT verification and authorization dependencies."""
 
-import logging
 import time
 from functools import lru_cache
 
 import jwt
+import structlog
 from fastapi import Depends, Request
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from jwt import PyJWKClient
 
 from app.core.config import Settings, get_settings
-from app.core.exceptions import AuthenticationError, ForbiddenError, ServiceUnavailableError
+from app.core.exceptions import AuthenticationError, ForbiddenError
 
-logger = logging.getLogger(__name__)
+logger = structlog.get_logger(__name__)
 
 __all__ = [
     "get_current_user_id",
@@ -48,6 +48,19 @@ def _verify_token(token: str, settings: Settings) -> dict:
     )
 
 
+def _extract_user_id(token: str, settings: Settings) -> str:
+    """Verify a JWT and return the user ID from the 'sub' claim."""
+    try:
+        payload = _verify_token(token, settings)
+    except jwt.exceptions.PyJWTError as e:
+        logger.warning("jwt_verification_failed", error=str(e))
+        raise AuthenticationError("Invalid or expired token") from e
+    user_id = payload.get("sub")
+    if not user_id:
+        raise AuthenticationError("Token missing subject claim")
+    return user_id
+
+
 async def get_current_user_id(
     credentials: HTTPAuthorizationCredentials | None = Depends(security),
     settings: Settings = Depends(get_settings),
@@ -55,16 +68,7 @@ async def get_current_user_id(
     """Verify JWT and extract user ID."""
     if credentials is None:
         raise AuthenticationError("Bearer authentication required")
-
-    try:
-        payload = _verify_token(credentials.credentials, settings)
-        user_id = payload.get("sub")
-        if not user_id:
-            raise AuthenticationError("Token missing subject claim")
-        return user_id
-    except jwt.exceptions.PyJWTError as e:
-        logger.warning("JWT verification failed: %s", e)
-        raise AuthenticationError("Invalid or expired token") from e
+    return _extract_user_id(credentials.credentials, settings)
 
 
 async def get_optional_user_id(
@@ -74,36 +78,19 @@ async def get_optional_user_id(
     """Verify JWT and extract user ID, or return None if no credentials."""
     if credentials is None:
         return None
-
-    try:
-        payload = _verify_token(credentials.credentials, settings)
-        user_id = payload.get("sub")
-        if not user_id:
-            raise AuthenticationError("Token missing subject claim")
-        return user_id
-    except jwt.exceptions.PyJWTError as e:
-        logger.warning("JWT verification failed: %s", e)
-        raise AuthenticationError("Invalid or expired token") from e
+    return _extract_user_id(credentials.credentials, settings)
 
 
 def get_ws_user_id(token: str, settings: Settings) -> str:
     """Verify JWT from a WebSocket query parameter."""
     if not token:
         raise AuthenticationError("Token required")
-    try:
-        payload = _verify_token(token, settings)
-        user_id = payload.get("sub")
-        if not user_id:
-            raise AuthenticationError("Token missing subject claim")
-        return user_id
-    except jwt.exceptions.PyJWTError as e:
-        logger.warning("WebSocket JWT verification failed: %s", e)
-        raise AuthenticationError("Invalid or expired token") from e
+    return _extract_user_id(token, settings)
 
 
 def is_admin(user_email: str, settings: Settings) -> bool:
     """Check if user email is in admin list."""
-    return user_email.lower() in [email.lower() for email in settings.admin_emails]
+    return user_email.lower() in {email.lower() for email in settings.admin_emails}
 
 
 async def require_admin(
@@ -119,10 +106,9 @@ async def require_admin(
             raise ForbiddenError()
         return user_id
 
-    if not hasattr(request.app.state, "pool") or request.app.state.pool is None:
-        raise ServiceUnavailableError("Database not available")
+    from app.core.deps.db import get_db_pool
 
-    pool = request.app.state.pool
+    pool = await get_db_pool(request)
 
     async with pool.acquire(timeout=10) as conn:
         email = await conn.fetchval(

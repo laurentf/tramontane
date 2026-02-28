@@ -1,7 +1,8 @@
 """Authentication API endpoints."""
 
-import logging
+from urllib.parse import urlparse
 
+import structlog
 from fastapi import APIRouter, Depends, Request, status
 from supabase_auth.errors import (
     AuthApiError,
@@ -9,6 +10,7 @@ from supabase_auth.errors import (
     AuthWeakPasswordError,
 )
 
+from app.core.config import get_settings
 from app.core.deps import get_supabase_client
 from app.core.exceptions import (
     AppError,
@@ -28,12 +30,12 @@ from app.features.auth.schemas.auth import (
 from app.features.auth.services.auth_service import AuthService
 from supabase import AsyncClient
 
-logger = logging.getLogger(__name__)
+logger = structlog.get_logger(__name__)
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
 
-async def get_auth_service(
+def get_auth_service(
     supabase: AsyncClient = Depends(get_supabase_client),
 ) -> AuthService:
     """Dependency to get AuthService instance."""
@@ -63,10 +65,7 @@ async def signup(
             raise ConflictError("User already exists") from e
         if e.status == 400:
             raise ValidationError(e.message) from e
-        logger.error("Signup failed: %s (status=%s, code=%s)", e.message, e.status, e.code)
-        raise AppError("Signup failed") from e
-    except Exception as e:
-        logger.error("Signup failed: %s", e)
+        logger.error("signup_failed", message=e.message, status=e.status, code=e.code)
         raise AppError("Signup failed") from e
 
 
@@ -88,10 +87,7 @@ async def login(
     except AuthApiError as e:
         if e.status == 400:
             raise AuthenticationError("Invalid email or password") from e
-        logger.error("Login failed: %s (status=%s)", e.message, e.status)
-        raise AppError("Login failed") from e
-    except Exception as e:
-        logger.error("Login failed: %s", e)
+        logger.error("login_failed", message=e.message, status=e.status)
         raise AppError("Login failed") from e
 
 
@@ -102,13 +98,9 @@ async def logout(
     auth_service: AuthService = Depends(get_auth_service),
 ) -> None:
     """Sign out the current user."""
-    try:
-        auth_header = request.headers.get("authorization", "")
-        token = auth_header.removeprefix("Bearer ")
-        await auth_service.sign_out(token)
-    except Exception as e:
-        logger.error("Logout failed for user %s: %s", user_id, e)
-        raise AppError("Logout failed") from e
+    auth_header = request.headers.get("authorization", "")
+    token = auth_header.removeprefix("Bearer ")
+    await auth_service.sign_out(token)
 
 
 @router.get("/session", response_model=SessionResponse)
@@ -131,9 +123,10 @@ async def get_google_oauth_url(
     auth_service: AuthService = Depends(get_auth_service),
 ) -> dict[str, str]:
     """Get Google OAuth URL for client redirect."""
-    try:
-        url = await auth_service.get_google_oauth_url(redirect_url)
-        return {"url": url}
-    except Exception as e:
-        logger.error("Failed to get Google OAuth URL: %s", e)
-        raise AppError("Failed to get OAuth URL") from e
+    settings = get_settings()
+    parsed = urlparse(redirect_url)
+    redirect_origin = f"{parsed.scheme}://{parsed.netloc}"
+    if redirect_origin not in settings.cors_origins:
+        raise ValidationError("Invalid redirect URL")
+    url = await auth_service.get_google_oauth_url(redirect_url)
+    return {"url": url}

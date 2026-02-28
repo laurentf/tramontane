@@ -72,3 +72,10 @@ node_modules/
 
 # Claude Code
 .claude/
+
+# Supabase
+supabase/.temp/
+supabase/.branches/
+
+# GSD Planning
+.planning/

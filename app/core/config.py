@@ -47,6 +47,10 @@ class Settings(BaseSettings):
     leonardo_webhook_secret: SecretStr | None = Field(default=None)
     elevenlabs_api_key: SecretStr | None = Field(default=None)
 
+    # Streaming
+    icecast_url: str | None = Field(default=None)
+    liquidsoap_harbor_url: str | None = Field(default=None)
+
     # App
     debug: bool = Field(default=False)
     cors_origins: list[str] = Field(default=["http://localhost:3000"])

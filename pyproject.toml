@@ -14,6 +14,8 @@ dependencies = [
     "arq>=0.26",
     "slowapi>=0.1.9",
     "structlog>=25.5.0",
+    "mutagen>=1.47.0",
+    "httpx>=0.27.0",
 ]
 
 [dependency-groups]
@@ -37,6 +39,7 @@ ignore = [
     "B008",    # Depends() in function defaults — standard FastAPI DI pattern
     "RUF005",  # list concatenation vs unpacking — both readable, prefer explicit +
     "RUF006",  # asyncio.create_task without storing ref — fire-and-forget is intentional
+    "ASYNC240", # pathlib in async — we use uvicorn not trio/anyio, Path ops are fine
 ]
 
 [tool.mypy]

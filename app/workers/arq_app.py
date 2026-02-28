@@ -4,13 +4,13 @@ Start worker:
     arq app.workers.arq_app.WorkerSettings
 """
 
-import logging
 import os
 from typing import ClassVar
 
+import structlog
 from arq.connections import RedisSettings
 
-logger = logging.getLogger(__name__)
+logger = structlog.get_logger(__name__)
 
 
 def _get_redis_settings() -> RedisSettings:
@@ -21,7 +21,7 @@ def _get_redis_settings() -> RedisSettings:
         if settings.redis_url:
             return RedisSettings.from_dsn(settings.redis_url.get_secret_value())
     except Exception:
-        pass
+        logger.debug("redis_settings_from_config_failed")
     redis_url = os.getenv("REDIS_URL", "redis://localhost:6379")
     return RedisSettings.from_dsn(redis_url)
 
@@ -42,8 +42,13 @@ async def shutdown(ctx: dict) -> None:
         await pool.close()
 
 
+async def ping(ctx: dict) -> str:
+    """Health check task."""
+    return "pong"
+
+
 class WorkerSettings:
-    functions: ClassVar[list] = []  # Add task functions here
+    functions: ClassVar[list] = [ping]
     cron_jobs: ClassVar[list] = []  # Add cron jobs here
     on_startup = startup
     on_shutdown = shutdown

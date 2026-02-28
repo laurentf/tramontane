@@ -4,10 +4,9 @@ Maps provider names (from config) to adapter classes.
 Allows switching providers via environment variables.
 """
 
-import logging
-from typing import Any
+import structlog
 
-logger = logging.getLogger(__name__)
+logger = structlog.get_logger(__name__)
 
 
 class ProviderNotFoundError(Exception):
@@ -41,7 +40,7 @@ class ProviderRegistry[T]:
         self._providers[name.lower()] = adapter_class
         logger.debug("Registered %s provider: %s", self._provider_type, name)
 
-    def create(self, name: str, **kwargs: Any) -> T:
+    def create(self, name: str, **kwargs: object) -> T:
         """Create an adapter instance for the named provider."""
         name_lower = name.lower()
         adapter_class = self._providers.get(name_lower)

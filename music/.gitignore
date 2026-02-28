@@ -1,0 +1,10 @@
+# Audio files - do not commit to git
+*.mp3
+*.flac
+*.wav
+*.ogg
+*.m4a
+*.aac
+
+# Keep .gitkeep files to preserve directory structure
+!.gitkeep

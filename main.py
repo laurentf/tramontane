@@ -1,10 +1,9 @@
 """FastAPI application entry point with lifespan, health endpoint, CORS, and exception handlers."""
 
-import logging
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 
-import asyncpg
+import structlog
 from fastapi import FastAPI, HTTPException, Request, status
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
@@ -13,6 +12,7 @@ from slowapi.errors import RateLimitExceeded
 
 from app.core.banner import print_banner
 from app.core.config import get_settings
+from app.core.database import create_pool
 from app.core.exceptions import AppError
 from app.core.logging import setup_logging
 from app.core.middleware import RequestIDMiddleware
@@ -23,7 +23,7 @@ from supabase import acreate_client
 # Configure structured logging (structlog + stdlib bridge)
 setup_logging()
 
-logger = logging.getLogger(__name__)
+logger = structlog.get_logger(__name__)
 
 
 @asynccontextmanager
@@ -33,18 +33,11 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 
     # Create asyncpg connection pool
     try:
-        app.state.pool = await asyncpg.create_pool(
-            dsn=settings.database_url.get_secret_value(),
-            min_size=settings.db_pool_min_size,
-            max_size=settings.db_pool_max_size,
-            command_timeout=settings.db_pool_command_timeout,
-            max_inactive_connection_lifetime=settings.db_pool_max_inactive_lifetime,
-            statement_cache_size=0,
-        )
-        logger.info("Database connection pool created")
+        app.state.pool = await create_pool()
+        logger.info("database_pool_created")
     except Exception as e:
         if settings.debug:
-            logger.warning("Failed to create database pool: %s", e)
+            logger.warning("database_pool_creation_failed", error=str(e))
             app.state.pool = None
         else:
             raise
@@ -154,8 +147,8 @@ async def unexpected_error_handler(request: Request, exc: Exception) -> JSONResp
 
 
 # Health endpoint
-@app.get("/health", tags=["health"], response_model=None)
-async def health_check() -> dict[str, str] | JSONResponse:
+@app.get("/health", tags=["health"])
+async def health_check() -> JSONResponse:
     """Health check endpoint for load balancers and monitoring."""
     if not app.state.pool:
         return JSONResponse(
@@ -170,10 +163,10 @@ async def health_check() -> dict[str, str] | JSONResponse:
         async with app.state.pool.acquire(timeout=10) as conn:
             await conn.fetchval("SELECT 1")
 
-        return {
+        return JSONResponse(content={
             "status": "healthy",
             "database": "connected",
-        }
+        })
     except Exception:
         logger.exception("Health check failed")
         return JSONResponse(

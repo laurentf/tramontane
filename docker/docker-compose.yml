@@ -57,6 +57,37 @@ services:
       redis:
         condition: service_healthy
 
+  icecast:
+    container_name: tramontane-icecast
+    image: libretime/icecast:2.4.4
+    ports:
+      - "8100:8000"
+    volumes:
+      - ./icecast/icecast.xml:/etc/icecast2/icecast.xml.template:ro
+      - ./icecast/entrypoint.sh:/entrypoint.sh:ro
+    entrypoint: /entrypoint.sh
+    env_file: ../.env
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "perl", "-MIO::Socket::INET", "-e", "exit(IO::Socket::INET->new('127.0.0.1:8000')?0:1)"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+
+  liquidsoap:
+    container_name: tramontane-liquidsoap
+    image: savonet/liquidsoap:v2.4.2
+    volumes:
+      - ./liquidsoap/radio.liq:/etc/liquidsoap/radio.liq:ro
+      - ../music:/music
+    command: liquidsoap /etc/liquidsoap/radio.liq
+    env_file: ../.env
+    restart: unless-stopped
+    depends_on:
+      icecast:
+        condition: service_healthy
+
   web:
     container_name: tramontane-web
     build:

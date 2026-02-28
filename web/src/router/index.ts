@@ -4,6 +4,12 @@ import { useAuthStore } from '@/stores/auth'
 import AppLayout from '@/layouts/AppLayout.vue'
 import AuthLayout from '@/layouts/AuthLayout.vue'
 
+declare module 'vue-router' {
+  interface RouteMeta {
+    requiresAuth?: boolean
+  }
+}
+
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
   routes: [
@@ -31,15 +37,11 @@ const router = createRouter({
     },
     {
       path: '/',
-      redirect: '/dashboard',
-    },
-    {
-      path: '/',
       component: AppLayout,
       meta: { requiresAuth: true },
       children: [
         {
-          path: 'dashboard',
+          path: '',
           name: 'dashboard',
           component: () => import('@/views/DashboardView.vue'),
         },
@@ -67,7 +69,7 @@ router.beforeEach(async (to) => {
   }
 
   if (authStore.isAuthenticated && to.path === '/login') {
-    return { path: '/dashboard' }
+    return { path: '/' }
   }
 
   if (to.meta.requiresAuth && !authStore.isAuthenticated) {

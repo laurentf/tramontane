@@ -37,13 +37,18 @@ const route = useRoute()
 const authStore = useAuthStore()
 const error = ref<string | null>(null)
 
+function safeRedirect(): string {
+  const raw = route.query.redirect
+  const value = Array.isArray(raw) ? raw[0] : raw
+  return typeof value === 'string' && value.startsWith('/') ? value : '/'
+}
+
 onMounted(async () => {
   try {
     await authStore.initialize()
 
     if (authStore.isAuthenticated) {
-      const redirect = (route.query.redirect as string) || '/dashboard'
-      router.push(redirect)
+      router.push(safeRedirect())
     } else {
       error.value = authStore.error || 'Authentication failed. Please try again.'
     }
@@ -56,8 +61,7 @@ watch(
   () => authStore.isAuthenticated,
   (isAuth) => {
     if (isAuth && !error.value) {
-      const redirect = (route.query.redirect as string) || '/dashboard'
-      router.push(redirect)
+      router.push(safeRedirect())
     }
   }
 )
