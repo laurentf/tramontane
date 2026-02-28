@@ -6,7 +6,7 @@ import structlog
 from fastapi import APIRouter, Depends
 
 from app.core.exceptions import NotFoundError, ValidationError
-from app.core.security import get_current_user_id
+from app.core.security import require_admin
 from app.features.radio.schemas.radio import (
     NowPlaying,
     PushStatus,
@@ -33,7 +33,7 @@ async def now_playing() -> NowPlaying:
 @router.post("/push", response_model=TrackPushResponse)
 async def push_track(
     body: TrackPushRequest,
-    _user_id: str = Depends(get_current_user_id),
+    _user_id: str = Depends(require_admin),
 ) -> TrackPushResponse:
     """Push a track to the Liquidsoap playback queue.
 

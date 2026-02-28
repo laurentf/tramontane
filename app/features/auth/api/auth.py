@@ -2,6 +2,7 @@
 
 from urllib.parse import urlparse
 
+import asyncpg
 import structlog
 from fastapi import APIRouter, Depends, Request, status
 from supabase_auth.errors import (
@@ -10,8 +11,9 @@ from supabase_auth.errors import (
     AuthWeakPasswordError,
 )
 
-from app.core.config import get_settings
+from app.core.config import Settings, get_settings
 from app.core.deps import get_supabase_client
+from app.core.deps.db import get_db_pool
 from app.core.exceptions import (
     AppError,
     AuthenticationError,
@@ -19,7 +21,7 @@ from app.core.exceptions import (
     ValidationError,
 )
 from app.core.rate_limit import limiter
-from app.core.security import get_current_user_id
+from app.core.security import get_current_user_id, is_admin
 from app.features.auth.schemas.auth import (
     AuthResponse,
     LoginRequest,
@@ -106,11 +108,17 @@ async def logout(
 @router.get("/session", response_model=SessionResponse)
 async def get_session(
     user_id: str = Depends(get_current_user_id),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+    settings: Settings = Depends(get_settings),
 ) -> SessionResponse:
     """Get current session information."""
+    email = await pool.fetchval(
+        "SELECT email FROM auth.users WHERE id = $1", user_id,
+    )
     return SessionResponse(
         user_id=user_id,
-        email="",
+        email=email or "",
+        is_admin=is_admin(email, settings) if email else False,
         expires_at=None,
     )
 

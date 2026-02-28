@@ -37,15 +37,38 @@ class Settings(BaseSettings):
     # LLM / AI
     llm_provider: str = Field(default="mistral")
     llm_model: str = Field(default="labs-mistral-small-creative")
-    analyzer_provider: str = Field(default="mistral")
-    analyzer_model: str = Field(default="mistral-tiny-latest")
     mistral_api_key: SecretStr | None = Field(default=None)
 
-    # Tools (optional — features auto-enable when key is set)
-    tavily_api_key: SecretStr | None = Field(default=None)
+    # Embedding
+    embedding_provider: str = Field(default="mistral")
+    embedding_model: str = Field(default="mistral-embed")
+
+    # Analyzer (structured JSON)
+    analyzer_provider: str = Field(default="mistral")
+    analyzer_model: str = Field(default="mistral-small-latest")
+
+    # STT
+    stt_provider: str | None = Field(default="mistral")
+    stt_model: str = Field(default="voxtral-mini-latest")
+
+    # TTS
+    tts_provider: str | None = Field(default="elevenlabs")
+    elevenlabs_api_key: SecretStr | None = Field(default=None)
+
+    # Image
     leonardo_api_key: SecretStr | None = Field(default=None)
     leonardo_webhook_secret: SecretStr | None = Field(default=None)
-    elevenlabs_api_key: SecretStr | None = Field(default=None)
+
+    # Search
+    search_provider: str | None = Field(default="tavily")
+    tavily_api_key: SecretStr | None = Field(default=None)
+
+    # Weather
+    weather_provider: str | None = Field(default="openweathermap")
+    openweather_api_key: SecretStr | None = Field(default=None)
+
+    # Storage
+    supabase_storage_bucket: str = Field(default="media")
 
     # Streaming
     icecast_url: str | None = Field(default=None)

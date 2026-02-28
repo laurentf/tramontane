@@ -1,0 +1,18 @@
+name: weather
+display_name: Weather Lookup
+description: Look up current weather conditions for any location worldwide
+level: query
+category: utility
+uses:
+  - weather
+tool:
+  name: weather
+  description: Get current weather conditions for a specific location
+  parameters:
+    type: object
+    properties:
+      location:
+        type: string
+        description: City or location name
+    required:
+      - location

@@ -7,12 +7,12 @@
         <!-- On-air pixel icon -->
         <div class="flex items-center gap-2">
           <div
-            class="on-air-icon"
-            :class="{
-              'on-air-live': playerStore.isPlaying,
-              'on-air-error': playerStore.error,
-              'on-air-loading': playerStore.isLoading,
-            }"
+            :class="[
+              playerStore.isLoading ? 'on-air-loading'
+                : playerStore.error ? 'on-air-error'
+                : playerStore.isPlaying ? 'on-air-live'
+                : 'on-air-idle',
+            ]"
           >
             <!-- 5x5 pixel tower icon -->
             <svg viewBox="0 0 9 9" class="w-3 h-3" fill="currentColor">
@@ -29,20 +29,34 @@
         <span class="font-pixel text-[8px] text-dark-accent">FM 99.7</span>
       </div>
 
-      <!-- Now playing display -->
-      <div class="h-12 flex flex-col justify-center">
-        <p
-          class="font-pixel text-[10px] text-neon-blue truncate"
-          :title="displayTitle"
-        >
-          {{ displayTitle }}
-        </p>
-        <p
-          class="font-pixel text-[8px] text-neon-purple mt-1 truncate"
-          :title="displayArtist"
-        >
-          {{ displayArtist }}
-        </p>
+      <!-- Now playing display with host avatar -->
+      <div class="h-14 flex items-center gap-2">
+        <!-- Host avatar (from active schedule block) -->
+        <div v-if="hostAvatar" class="flex-shrink-0">
+          <img
+            :src="hostAvatar"
+            :alt="hostName || 'Host'"
+            class="w-10 h-10 rounded-full border border-neon-blue object-cover"
+          />
+          <p v-if="hostName" class="font-pixel text-[6px] text-neon-purple text-center mt-0.5 truncate max-w-[40px]">
+            {{ hostName }}
+          </p>
+        </div>
+        <!-- Track info -->
+        <div class="flex-1 min-w-0 flex flex-col justify-center">
+          <p
+            class="font-pixel text-[10px] text-neon-blue truncate"
+            :title="displayTitle"
+          >
+            {{ displayTitle }}
+          </p>
+          <p
+            class="font-pixel text-[8px] text-neon-purple mt-1 truncate"
+            :title="displayArtist"
+          >
+            {{ displayArtist }}
+          </p>
+        </div>
       </div>
 
       <!-- Visualizer bars -->
@@ -110,9 +124,17 @@
 <script setup lang="ts">
 import { computed, ref, watch, onMounted, onUnmounted } from 'vue'
 import { usePlayerStore } from '@/stores/player'
+import { useScheduleStore } from '@/stores/schedule'
 
 const playerStore = usePlayerStore()
+const scheduleStore = useScheduleStore()
 const vizCanvas = ref<HTMLCanvasElement | null>(null)
+
+// Active block polling (30-second interval)
+let activeBlockTimer: ReturnType<typeof setInterval> | null = null
+
+const hostAvatar = computed(() => scheduleStore.activeBlock?.host_avatar_url ?? null)
+const hostName = computed(() => scheduleStore.activeBlock?.host_name ?? null)
 
 // Canvas-based visualizer — no DOM thrashing
 const BAR_COUNT = 16
@@ -163,8 +185,17 @@ watch(() => playerStore.isPlaying, (playing) => {
   }
 })
 
-onMounted(() => { drawBars() })
-onUnmounted(() => { if (rafId !== null) cancelAnimationFrame(rafId) })
+onMounted(() => {
+  drawBars()
+  // Fetch active block immediately, then poll every 30 seconds
+  scheduleStore.fetchActiveBlock()
+  activeBlockTimer = setInterval(() => scheduleStore.fetchActiveBlock(), 30_000)
+})
+
+onUnmounted(() => {
+  if (rafId !== null) cancelAnimationFrame(rafId)
+  if (activeBlockTimer !== null) clearInterval(activeBlockTimer)
+})
 
 const displayTitle = computed(() => playerStore.nowPlaying?.title || 'TRAMONTANE RADIO')
 const displayArtist = computed(() => playerStore.nowPlaying?.artist || 'TUNE IN')
@@ -190,20 +221,20 @@ function onVolumeInput(e: Event) {
 </script>
 
 <style scoped>
-.on-air-icon {
-  color: #9ca3af;
+.on-air-idle {
+  color: #9ca3af !important;
 }
 
 .on-air-live {
-  color: #4ade80;
+  color: #4ade80 !important;
 }
 
 .on-air-error {
-  color: #ff6eb4;
+  color: #ff6eb4 !important;
 }
 
 .on-air-loading {
-  color: #4ade80;
+  color: #4ade80 !important;
   animation: on-air-pulse 0.8s ease-in-out infinite;
 }
 

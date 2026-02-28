@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends
 
 from app.core.deps.ingest import get_ingest_service
 from app.core.exceptions import ValidationError
-from app.core.security import get_current_user_id
+from app.core.security import require_admin
 from app.features.ingest.schemas.ingest import ScanRequest, ScanResult
 from app.features.ingest.services.ingest_service import IngestService
 
@@ -19,7 +19,7 @@ router = APIRouter(prefix="/ingest", tags=["ingest"])
 @router.post("/scan", response_model=ScanResult)
 async def scan(
     body: ScanRequest,
-    _user_id: str = Depends(get_current_user_id),
+    _user_id: str = Depends(require_admin),
     ingest_service: IngestService = Depends(get_ingest_service),
 ) -> ScanResult:
     """Scan a directory for audio files, read their tags, and store in the database."""

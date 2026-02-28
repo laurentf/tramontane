@@ -48,8 +48,18 @@ async def ping(ctx: dict[str, Any]) -> str:
     return "pong"
 
 
+# Lazy import to avoid circular dependencies at module level.
+def _get_avatar_task() -> Callable[..., Coroutine[Any, Any, Any]]:
+    from app.features.hosts.services.avatar_service import generate_host_avatar
+
+    return generate_host_avatar
+
+
 class WorkerSettings:
-    functions: ClassVar[list[Callable[..., Coroutine[Any, Any, Any]]]] = [ping]
+    functions: ClassVar[list[Callable[..., Coroutine[Any, Any, Any]]]] = [
+        ping,
+        _get_avatar_task(),
+    ]
     cron_jobs: ClassVar[list[Any]] = []
     on_startup = startup
     on_shutdown = shutdown

@@ -2,7 +2,9 @@ import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import type { Session } from '@supabase/supabase-js'
 import { supabase } from '@/lib/supabase'
+import { api } from '@/lib/api'
 import router from '@/router'
+import { usePlayerStore } from '@/stores/player'
 
 interface User {
   id: string
@@ -16,6 +18,7 @@ export const useAuthStore = defineStore('auth', () => {
   const session = ref<Session | null>(null)
   const loading = ref(true)
   const error = ref<string | null>(null)
+  const isAdmin = ref(false)
 
   const isAuthenticated = computed(() => !!session.value)
   const accessToken = computed(() => session.value?.access_token ?? null)
@@ -42,13 +45,24 @@ export const useAuthStore = defineStore('auth', () => {
   async function signOut() {
     error.value = null
     try {
+      usePlayerStore().stop()
       await supabase.auth.signOut()
       user.value = null
       session.value = null
+      isAdmin.value = false
       router.push('/login')
     } catch (err) {
       error.value = err instanceof Error ? err.message : 'Sign out failed'
       throw err
+    }
+  }
+
+  async function fetchAdminStatus() {
+    try {
+      const sess = await api.get<{ is_admin: boolean }>('/api/v1/auth/session')
+      isAdmin.value = sess.is_admin
+    } catch {
+      isAdmin.value = false
     }
   }
 
@@ -66,6 +80,7 @@ export const useAuthStore = defineStore('auth', () => {
           display_name: data.session.user.user_metadata?.full_name ?? null,
           avatar_url: data.session.user.user_metadata?.avatar_url ?? null,
         }
+        await fetchAdminStatus()
       }
 
       supabase.auth.onAuthStateChange(async (_event, newSession) => {
@@ -78,8 +93,10 @@ export const useAuthStore = defineStore('auth', () => {
             display_name: newSession.user.user_metadata?.full_name ?? null,
             avatar_url: newSession.user.user_metadata?.avatar_url ?? null,
           }
+          await fetchAdminStatus()
         } else {
           user.value = null
+          isAdmin.value = false
         }
       })
     } catch (err) {
@@ -96,6 +113,7 @@ export const useAuthStore = defineStore('auth', () => {
     loading,
     error,
     isAuthenticated,
+    isAdmin,
     accessToken,
     signInWithGoogle,
     signOut,

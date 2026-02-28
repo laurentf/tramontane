@@ -2,6 +2,9 @@
 
 Maps provider names (from config) to adapter classes.
 Allows switching providers via environment variables.
+
+Usage:
+    LLM_PROVIDER=mistral  → MistralLLMAdapter
 """
 
 import structlog
@@ -26,9 +29,9 @@ class ProviderRegistry[T]:
     """Generic registry for provider adapters.
 
     Usage:
-        registry = ProviderRegistry[SomeAdapter]("SomeType")
-        registry.register("name", SomeAdapterImpl)
-        adapter = registry.create("name", api_key=...)
+        llm_registry = ProviderRegistry[LLMAdapter]("LLM")
+        llm_registry.register("mistral", MistralLLMAdapter)
+        adapter = llm_registry.create("mistral", api_key=..., model=...)
     """
 
     def __init__(self, provider_type: str) -> None:
@@ -72,10 +75,53 @@ class ProviderRegistry[T]:
 
 
 # =============================================================================
-# Global registries — register adapters here as you add providers
+# Global registries (populated at import time)
 # =============================================================================
-# Example:
-#   from app.providers.llm.protocol import LLMAdapter
-#   from app.providers.llm.mistral import MistralLLMAdapter
-#   llm_registry: ProviderRegistry[LLMAdapter] = ProviderRegistry("LLM")
-#   llm_registry.register("mistral", MistralLLMAdapter)
+
+from app.providers.analyzer.mistral.adapter import MistralAnalyzerAdapter  # noqa: E402
+from app.providers.analyzer.protocol import AnalyzerAdapter  # noqa: E402
+from app.providers.embedding.mistral.adapter import MistralEmbeddingAdapter  # noqa: E402
+from app.providers.embedding.protocol import EmbeddingAdapter  # noqa: E402
+from app.providers.image import ImageGenerationProvider  # noqa: E402
+from app.providers.image.leonardo.adapter import LeonardoAdapter  # noqa: E402
+from app.providers.llm.mistral import MistralLLMAdapter  # noqa: E402
+from app.providers.llm.protocol import LLMAdapter  # noqa: E402
+from app.providers.search.protocol import SearchAdapter  # noqa: E402
+from app.providers.search.tavily.adapter import TavilySearchAdapter  # noqa: E402
+from app.providers.speech.stt import STTProvider  # noqa: E402
+from app.providers.speech.stt.mistral.adapter import MistralSTTAdapter  # noqa: E402
+from app.providers.speech.tts.elevenlabs.adapter import ElevenLabsTTSAdapter  # noqa: E402
+from app.providers.weather.openweathermap.adapter import OpenWeatherMapAdapter  # noqa: E402
+from app.providers.weather.protocol import WeatherAdapter  # noqa: E402
+
+# LLM providers
+llm_registry: ProviderRegistry[LLMAdapter] = ProviderRegistry("LLM")
+llm_registry.register("mistral", MistralLLMAdapter)
+
+# Embedding providers
+embedding_registry: ProviderRegistry[EmbeddingAdapter] = ProviderRegistry("Embedding")
+embedding_registry.register("mistral", MistralEmbeddingAdapter)
+
+# Search providers
+search_registry: ProviderRegistry[SearchAdapter] = ProviderRegistry("Search")
+search_registry.register("tavily", TavilySearchAdapter)
+
+# Image providers
+image_registry: ProviderRegistry[ImageGenerationProvider] = ProviderRegistry("Image")
+image_registry.register("leonardo", LeonardoAdapter)
+
+# STT providers
+stt_registry: ProviderRegistry[STTProvider] = ProviderRegistry("STT")
+stt_registry.register("mistral", MistralSTTAdapter)
+
+# TTS providers — no protocol yet, just the adapter
+tts_registry: ProviderRegistry = ProviderRegistry("TTS")
+tts_registry.register("elevenlabs", ElevenLabsTTSAdapter)
+
+# Weather providers
+weather_registry: ProviderRegistry[WeatherAdapter] = ProviderRegistry("Weather")
+weather_registry.register("openweathermap", OpenWeatherMapAdapter)
+
+# Analyzer providers (structured JSON analysis)
+analyzer_registry: ProviderRegistry[AnalyzerAdapter] = ProviderRegistry("Analyzer")
+analyzer_registry.register("mistral", MistralAnalyzerAdapter)

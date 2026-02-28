@@ -1,0 +1,18 @@
+name: web_search
+display_name: Web Search
+description: Search the web for up-to-date information using the configured search provider
+level: query
+category: utility
+uses:
+  - search
+tool:
+  name: web_search
+  description: Search the web for current information on any topic
+  parameters:
+    type: object
+    properties:
+      query:
+        type: string
+        description: Search query
+    required:
+      - query

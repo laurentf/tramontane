@@ -43,6 +43,7 @@ class SessionResponse(BaseModel):
 
     user_id: str
     email: str
+    is_admin: bool = False
     expires_at: int | None = None
 
 

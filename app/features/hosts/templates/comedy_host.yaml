@@ -1,0 +1,142 @@
+template_id: comedy_host
+name:
+  en: Comedy Host
+  fr: Animateur Humour
+  es: Presentador de Comedia
+description:
+  en: >-
+    Energetic comedy show host who lives for laughs. Uses humor, puns,
+    and playful audience interaction to keep the energy high.
+  fr: >-
+    Animateur energique qui vit pour le rire. Humour, jeux de mots
+    et interaction ludique avec le public pour garder l'energie haute.
+  es: >-
+    Presentador energetico que vive para las risas. Humor, juegos
+    de palabras e interaccion ludica para mantener la energia.
+icon: mood-happy
+
+avatar_generation_params:
+  leonardo:
+    model_id: "de7d3faf-762f-48e0-b3b7-9d0ac3a3fcf3"  # Phoenix 1.0
+    preset_style: "DYNAMIC"
+    alchemy: true
+    guidance_scale: 7
+
+avatar_style_hint: >-
+  Portrait of an energetic comedy show host on a colorful stage.
+  Bright spotlights, big expressive grin, microphone in hand.
+  Pink and yellow accents, dynamic confident pose.
+  Candid portrait photograph, natural lighting, warm tones, high detail.
+
+default_voices:
+  elevenlabs:
+    female: "d3AXX0BlgJHYFCuH9X88"
+    male: "xlVRtVJbKuO2nwbbopa2"
+    non-binary: "mActWQg9kibLro6Z2ouY"
+
+general_fields:
+  - field_key: gender
+    field_type: select
+    required: true
+    translations:
+      en: { label: "Gender" }
+      fr: { label: "Genre" }
+      es: { label: "Genero" }
+    options:
+      - value: female
+        translations: { en: "Female", fr: "Femme", es: "Femenino" }
+      - value: male
+        translations: { en: "Male", fr: "Homme", es: "Masculino" }
+      - value: non-binary
+        translations: { en: "Non-binary", fr: "Non-binaire", es: "No binario" }
+  - field_key: tone
+    field_type: select
+    required: true
+    translations:
+      en: { label: "Tone" }
+      fr: { label: "Ton" }
+      es: { label: "Tono" }
+    options:
+      - value: warm
+        translations: { en: "Warm", fr: "Chaleureux", es: "Calido" }
+      - value: energetic
+        translations: { en: "Energetic", fr: "Energique", es: "Energetico" }
+      - value: chill
+        translations: { en: "Chill", fr: "Decontracte", es: "Relajado" }
+      - value: funny
+        translations: { en: "Funny", fr: "Drole", es: "Divertido" }
+      - value: mysterious
+        translations: { en: "Mysterious", fr: "Mysterieux", es: "Misterioso" }
+  - field_key: look
+    field_type: textarea
+    required: false
+    max_length: 200
+    translations:
+      en: { label: "Look & style", placeholder: "Describe their appearance, clothing, accessories..." }
+      fr: { label: "Look & style", placeholder: "Decrivez son apparence, ses vetements, ses accessoires..." }
+      es: { label: "Look y estilo", placeholder: "Describe su apariencia, ropa, accesorios..." }
+  - field_key: backstory
+    field_type: textarea
+    required: false
+    max_length: 300
+    translations:
+      en: { label: "Backstory", placeholder: "Where do they come from? What shaped who they are?" }
+      fr: { label: "Histoire", placeholder: "D'ou viennent-ils ? Qu'est-ce qui les a faconnes ?" }
+      es: { label: "Historia", placeholder: "De donde vienen? Que los forjo?" }
+
+template_fields:
+  - field_key: humor_style
+    field_type: multi_select
+    required: true
+    min_select: 1
+    max_select: 3
+    translations:
+      en: { label: "Humor style" }
+      fr: { label: "Style d'humour" }
+      es: { label: "Estilo de humor" }
+    options:
+      - value: puns
+        translations: { en: "Puns & Wordplay", fr: "Jeux de mots", es: "Juegos de palabras" }
+      - value: observational
+        translations: { en: "Observational", fr: "Observationnel", es: "Observacional" }
+      - value: absurd
+        translations: { en: "Absurd & Surreal", fr: "Absurde & Surealiste", es: "Absurdo y surrealista" }
+      - value: deadpan
+        translations: { en: "Deadpan", fr: "Pince-sans-rire", es: "Humor seco" }
+      - value: sarcasm
+        translations: { en: "Sarcasm", fr: "Sarcasme", es: "Sarcasmo" }
+  - field_key: energy_level
+    field_type: select
+    required: true
+    translations:
+      en: { label: "Energy level" }
+      fr: { label: "Niveau d'energie" }
+      es: { label: "Nivel de energia" }
+    options:
+      - value: calm-wit
+        translations: { en: "Calm wit", fr: "Esprit calme", es: "Ingenio calmo" }
+      - value: moderate
+        translations: { en: "Moderate fun", fr: "Fun modere", es: "Diversion moderada" }
+      - value: high-energy
+        translations: { en: "High energy", fr: "Haute energie", es: "Alta energia" }
+
+enrichment_prompt: |
+  You are creating a radio host personality profile for an energetic
+  comedy show host called '{name}'.
+
+  The user described this host with these attributes:
+  {form_data}
+
+  Generate a JSON object with these exact keys:
+  - short_summary: A single catchy sentence describing this host (max 100 chars,
+    like a tagline).
+  - self_description: A first-person self-description (2-3 paragraphs) where the
+    host introduces themselves to a new listener. Include their humor style,
+    what makes them laugh, what listeners can expect.
+  - avatar_prompt (MUST be under 1500 characters): A detailed visual description
+    for Leonardo.ai image generation IN ENGLISH. Use this style hint:
+    {avatar_style_hint}
+
+  FORMATTING: Do NOT use markdown emphasis (*text*, **text**). Write plain text only.
+
+  Return ONLY a valid JSON object with these three fields.

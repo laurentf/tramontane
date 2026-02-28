@@ -7,6 +7,7 @@ import AuthLayout from '@/layouts/AuthLayout.vue'
 declare module 'vue-router' {
   interface RouteMeta {
     requiresAuth?: boolean
+    requiresAdmin?: boolean
   }
 }
 
@@ -45,6 +46,35 @@ const router = createRouter({
           name: 'dashboard',
           component: () => import('@/views/DashboardView.vue'),
         },
+        {
+          path: '/hosts',
+          name: 'hosts',
+          component: () => import('@/views/hosts/HostListView.vue'),
+        },
+        {
+          path: '/hosts/create',
+          name: 'host-create',
+          meta: { requiresAdmin: true },
+          component: () => import('@/views/hosts/HostCreateView.vue'),
+        },
+        {
+          path: '/hosts/:id',
+          name: 'host-detail',
+          component: () => import('@/views/hosts/HostDetailView.vue'),
+          props: true,
+        },
+        {
+          path: '/schedule',
+          name: 'schedule',
+          meta: { requiresAdmin: true },
+          component: () => import('@/views/schedule/ScheduleView.vue'),
+        },
+        {
+          path: '/settings',
+          name: 'settings',
+          meta: { requiresAdmin: true },
+          component: () => import('@/views/settings/SettingsView.vue'),
+        },
       ],
     },
   ],
@@ -74,6 +104,10 @@ router.beforeEach(async (to) => {
 
   if (to.meta.requiresAuth && !authStore.isAuthenticated) {
     return { name: 'login', query: { redirect: to.fullPath } }
+  }
+
+  if (to.meta.requiresAdmin && !authStore.isAdmin) {
+    return { path: '/' }
   }
 
   return true

@@ -1,0 +1,146 @@
+template_id: culture_reviewer
+name:
+  en: Culture Reviewer
+  fr: Chroniqueur Culture
+  es: Critico Cultural
+description:
+  en: >-
+    Thoughtful culture and arts reviewer with a refined sensibility.
+    References cinema, music, literature, and visual arts with genuine passion.
+  fr: >-
+    Chroniqueur culturel reflechi a la sensibilite raffinee.
+    Cinema, musique, litterature et arts visuels avec passion sincere.
+  es: >-
+    Critico cultural reflexivo con una sensibilidad refinada.
+    Cine, musica, literatura y artes visuales con pasion genuina.
+icon: capitol
+
+avatar_generation_params:
+  leonardo:
+    model_id: "de7d3faf-762f-48e0-b3b7-9d0ac3a3fcf3"  # Phoenix 1.0
+    preset_style: "DYNAMIC"
+    alchemy: true
+    guidance_scale: 7
+
+avatar_style_hint: >-
+  Portrait of a thoughtful culture reviewer in a cozy study.
+  Bookshelves and art prints visible, warm reading lamp, stylish glasses,
+  coffee cup nearby. Amber warm tones, thoughtful expression.
+  Candid portrait photograph, natural lighting, warm tones, high detail.
+
+default_voices:
+  elevenlabs:
+    female: "d3AXX0BlgJHYFCuH9X88"
+    male: "xlVRtVJbKuO2nwbbopa2"
+    non-binary: "mActWQg9kibLro6Z2ouY"
+
+general_fields:
+  - field_key: gender
+    field_type: select
+    required: true
+    translations:
+      en: { label: "Gender" }
+      fr: { label: "Genre" }
+      es: { label: "Genero" }
+    options:
+      - value: female
+        translations: { en: "Female", fr: "Femme", es: "Femenino" }
+      - value: male
+        translations: { en: "Male", fr: "Homme", es: "Masculino" }
+      - value: non-binary
+        translations: { en: "Non-binary", fr: "Non-binaire", es: "No binario" }
+  - field_key: tone
+    field_type: select
+    required: true
+    translations:
+      en: { label: "Tone" }
+      fr: { label: "Ton" }
+      es: { label: "Tono" }
+    options:
+      - value: warm
+        translations: { en: "Warm", fr: "Chaleureux", es: "Calido" }
+      - value: energetic
+        translations: { en: "Energetic", fr: "Energique", es: "Energetico" }
+      - value: chill
+        translations: { en: "Chill", fr: "Decontracte", es: "Relajado" }
+      - value: funny
+        translations: { en: "Funny", fr: "Drole", es: "Divertido" }
+      - value: mysterious
+        translations: { en: "Mysterious", fr: "Mysterieux", es: "Misterioso" }
+  - field_key: look
+    field_type: textarea
+    required: false
+    max_length: 200
+    translations:
+      en: { label: "Look & style", placeholder: "Describe their appearance, clothing, accessories..." }
+      fr: { label: "Look & style", placeholder: "Decrivez son apparence, ses vetements, ses accessoires..." }
+      es: { label: "Look y estilo", placeholder: "Describe su apariencia, ropa, accesorios..." }
+  - field_key: backstory
+    field_type: textarea
+    required: false
+    max_length: 300
+    translations:
+      en: { label: "Backstory", placeholder: "Where do they come from? What shaped who they are?" }
+      fr: { label: "Histoire", placeholder: "D'ou viennent-ils ? Qu'est-ce qui les a faconnes ?" }
+      es: { label: "Historia", placeholder: "De donde vienen? Que los forjo?" }
+
+template_fields:
+  - field_key: art_forms
+    field_type: multi_select
+    required: true
+    min_select: 1
+    max_select: 3
+    translations:
+      en: { label: "Art forms" }
+      fr: { label: "Formes d'art" }
+      es: { label: "Formas de arte" }
+    options:
+      - value: cinema
+        translations: { en: "Cinema", fr: "Cinema", es: "Cine" }
+      - value: music
+        translations: { en: "Music", fr: "Musique", es: "Musica" }
+      - value: literature
+        translations: { en: "Literature", fr: "Litterature", es: "Literatura" }
+      - value: theater
+        translations: { en: "Theater", fr: "Theatre", es: "Teatro" }
+      - value: visual-arts
+        translations: { en: "Visual Arts", fr: "Arts visuels", es: "Artes visuales" }
+      - value: photography
+        translations: { en: "Photography", fr: "Photographie", es: "Fotografia" }
+  - field_key: review_style
+    field_type: select
+    required: true
+    translations:
+      en: { label: "Review style" }
+      fr: { label: "Style de critique" }
+      es: { label: "Estilo de critica" }
+    options:
+      - value: academic
+        translations: { en: "Academic", fr: "Academique", es: "Academico" }
+      - value: conversational
+        translations: { en: "Conversational", fr: "Conversationnel", es: "Conversacional" }
+      - value: passionate
+        translations: { en: "Passionate", fr: "Passionne", es: "Apasionado" }
+      - value: storytelling
+        translations: { en: "Storytelling", fr: "Narratif", es: "Narrativo" }
+
+enrichment_prompt: |
+  You are creating a radio host personality profile for a culture and arts
+  reviewer called '{name}'.
+
+  The user described this host with these attributes:
+  {form_data}
+
+  Generate a JSON object with these exact keys:
+  - short_summary: A single catchy sentence describing this host (max 100 chars,
+    like a tagline).
+  - self_description: A first-person self-description (2-3 paragraphs) where the
+    host introduces themselves to a new listener. Include their cultural passions,
+    what art means to them, what makes their reviews special.
+  - avatar_prompt (MUST be under 1500 characters): A detailed visual description
+    for Leonardo.ai image generation IN ENGLISH. Use this style hint:
+    {avatar_style_hint}
+
+  FORMATTING: Do NOT use markdown emphasis (*text*, **text**). Write plain text only.
+
+  Return ONLY a valid JSON object with these three fields.

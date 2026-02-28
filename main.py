@@ -18,6 +18,9 @@ from app.core.logging import setup_logging
 from app.core.middleware import RequestIDMiddleware
 from app.core.rate_limit import limiter
 from app.features.api import router as api_router
+from app.features.hosts.skills import SkillLoader, SkillRegistry
+from app.providers.tools.handlers import SearchToolHandler, WeatherToolHandler
+from app.providers.tools.registry import ToolRegistry
 from supabase import acreate_client
 
 # Configure structured logging (structlog + stdlib bridge)
@@ -49,24 +52,97 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     )
     logger.info("Supabase client created")
 
+    # Tool registry — instantiate handlers with provider adapters
+    tool_registry = ToolRegistry()
+
+    if settings.openweather_api_key:
+        from app.providers.weather.openweathermap.adapter import OpenWeatherMapAdapter
+
+        weather_adapter = OpenWeatherMapAdapter(
+            api_key=settings.openweather_api_key.get_secret_value(),
+        )
+        tool_registry.register(WeatherToolHandler(weather_adapter))
+        logger.info("Registered tool: weather")
+
+    if settings.tavily_api_key:
+        from app.providers.search.tavily.adapter import TavilySearchAdapter
+
+        search_adapter = TavilySearchAdapter(
+            api_key=settings.tavily_api_key.get_secret_value(),
+        )
+        tool_registry.register(SearchToolHandler(search_adapter))
+        logger.info("Registered tool: web_search")
+
+    app.state.tool_registry = tool_registry
+
+    # Skill registry — load YAML manifests and prompt files
+    skill_manifests = SkillLoader().load_all()
+    app.state.skill_registry = SkillRegistry(skill_manifests)
+
     # Startup banner
     infra: list[tuple[str, str]] = [
         ("Database", "connected" if app.state.pool else "unavailable"),
         ("Supabase", "connected"),
     ]
+    # Create ARQ Redis pool for background jobs
     if settings.redis_url:
-        infra.append(("Redis/ARQ", "configured"))
+        try:
+            from arq.connections import RedisSettings
+            from arq.connections import create_pool as create_arq_pool
+
+            app.state.arq_pool = await create_arq_pool(
+                RedisSettings.from_dsn(settings.redis_url.get_secret_value())
+            )
+            infra.append(("Redis/ARQ", "connected"))
+        except Exception as exc:
+            logger.warning("arq_pool_creation_failed", error=str(exc))
+            app.state.arq_pool = None
+            infra.append(("Redis/ARQ", "unavailable"))
+    else:
+        app.state.arq_pool = None
+
+    providers: list[tuple[str, str]] = [
+        ("LLM", f"{settings.llm_provider} ({settings.llm_model})"),
+        ("Embedding", f"{settings.embedding_provider} ({settings.embedding_model})"),
+        ("Analyzer", f"{settings.analyzer_provider} ({settings.analyzer_model})"),
+    ]
+    if settings.stt_provider:
+        providers.append(("STT", f"{settings.stt_provider} ({settings.stt_model})"))
+    if settings.tts_provider:
+        providers.append(("TTS", settings.tts_provider))
+    if settings.leonardo_api_key:
+        providers.append(("Image", "leonardo"))
+    if settings.search_provider:
+        providers.append(("Search", settings.search_provider))
+    if settings.weather_provider:
+        providers.append(("Weather", settings.weather_provider))
+
+    streaming: list[tuple[str, str]] = []
+    if settings.icecast_url:
+        streaming.append(("Icecast", settings.icecast_url))
+    if settings.liquidsoap_harbor_url:
+        streaming.append(("Liquidsoap", settings.liquidsoap_harbor_url))
 
     sections: list[tuple[str, list[tuple[str, str]]]] = [
         ("Infra", infra),
-        ("Routes", [("API", "/api/v1")]),
+        ("Providers", providers),
     ]
+    if streaming:
+        sections.append(("Streaming", streaming))
+    if skill_manifests:
+        sections.append(("Skills", [
+            (name, m.level) for name, m in sorted(skill_manifests.items())
+        ]))
+    sections.append(("Routes", [("API", "/api/v1")]))
 
     print_banner("api", sections=sections)
 
     yield
 
-    # Close pool on shutdown
+    # Close pools on shutdown
+    if getattr(app.state, "arq_pool", None):
+        await app.state.arq_pool.close()
+        logger.info("ARQ Redis pool closed")
     if app.state.pool:
         await app.state.pool.close()
         logger.info("Database connection pool closed")
