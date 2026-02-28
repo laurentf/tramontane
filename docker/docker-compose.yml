@@ -1,0 +1,80 @@
+name: tramontane
+
+services:
+  redis:
+    container_name: tramontane-redis
+    image: redis:7-alpine
+    ports:
+      - "127.0.0.1:6379:6379"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  api:
+    container_name: tramontane-api
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+      target: dev
+    command: uv run uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+    ports:
+      - "8000:8000"
+    volumes:
+      - ../app:/app/app
+      - ../main.py:/app/main.py
+    env_file: ../.env
+    environment:
+      REDIS_URL: redis://redis:6379/0
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+    depends_on:
+      redis:
+        condition: service_healthy
+
+  worker:
+    container_name: tramontane-worker
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+      target: dev
+    command: uv run arq app.workers.arq_app.WorkerSettings
+    volumes:
+      - ../app:/app/app
+      - ../main.py:/app/main.py
+    env_file: ../.env
+    environment:
+      REDIS_URL: redis://redis:6379/0
+    restart: unless-stopped
+    depends_on:
+      redis:
+        condition: service_healthy
+
+  web:
+    container_name: tramontane-web
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.web
+      target: dev
+    ports:
+      - "3000:5173"
+    volumes:
+      - ../web/src:/app/src
+      - ../web/public:/app/public
+      - ../web/index.html:/app/index.html
+      - ../web/vite.config.ts:/app/vite.config.ts
+      - ../web/tailwind.config.js:/app/tailwind.config.js
+      - ../web/postcss.config.js:/app/postcss.config.js
+      - ../web/tsconfig.json:/app/tsconfig.json
+      - ../web/tsconfig.node.json:/app/tsconfig.node.json
+    env_file: ../web/.env
+    restart: unless-stopped
+    depends_on:
+      - api
