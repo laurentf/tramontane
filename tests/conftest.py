@@ -20,6 +20,7 @@ os.environ.setdefault("DATABASE_URL", "postgresql://test:test@localhost:54322/te
 os.environ.setdefault("ADMIN_EMAILS", '["admin@test.com"]')
 os.environ.setdefault("DEBUG", "true")
 os.environ.setdefault("CORS_ORIGINS", '["http://localhost:3000"]')
+os.environ["REDIS_URL"] = ""  # Disable arq Redis in tests (avoid Docker dependency)
 
 import app.core.rate_limit as _rl
 from app.core.config import Settings, get_settings

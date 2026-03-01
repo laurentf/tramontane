@@ -1,7 +1,7 @@
 <template>
-  <div class="w-72 bg-dark-surface border-2 border-dark-accent shadow-pixel">
+  <div class="w-96 bg-dark-surface border-2 border-dark-accent shadow-pixel">
     <!-- Screen area -->
-    <div class="bg-dark-bg border-b-2 border-dark-accent p-4 space-y-3">
+    <div class="bg-dark-bg border-b-2 border-dark-accent p-5 space-y-4">
       <!-- Status bar -->
       <div class="flex items-center justify-between">
         <!-- On-air pixel icon -->
@@ -15,7 +15,7 @@
             ]"
           >
             <!-- 5x5 pixel tower icon -->
-            <svg viewBox="0 0 9 9" class="w-3 h-3" fill="currentColor">
+            <svg viewBox="0 0 9 9" class="w-3.5 h-3.5" fill="currentColor">
               <rect x="4" y="3" width="1" height="6" />
               <rect x="3" y="1" width="1" height="1" />
               <rect x="5" y="1" width="1" height="1" />
@@ -25,76 +25,80 @@
               <rect x="7" y="2" width="1" height="1" />
             </svg>
           </div>
+          <span
+            v-if="playerStore.isPlaying"
+            class="font-pixel text-[9px] text-green-400 uppercase tracking-wider"
+          >ON AIR</span>
         </div>
-        <span class="font-pixel text-[8px] text-dark-accent">FM 99.7</span>
+        <span class="font-pixel text-[9px] text-dark-accent">FM 99.7</span>
       </div>
 
-      <!-- Now playing display with host avatar -->
-      <div class="h-14 flex items-center gap-2">
-        <!-- Host avatar (from active schedule block) -->
-        <div v-if="hostAvatar" class="flex-shrink-0">
+      <!-- Host avatar centered -->
+      <div v-if="hostAvatar" class="flex flex-col items-center gap-1">
+        <div class="w-36 h-36 border-2 border-neon-purple/50 overflow-hidden bg-dark-surface">
           <img
             :src="hostAvatar"
             :alt="hostName || 'Host'"
-            class="w-10 h-10 rounded-full border border-neon-blue object-cover"
+            class="w-full h-full object-cover"
           />
-          <p v-if="hostName" class="font-pixel text-[6px] text-neon-purple text-center mt-0.5 truncate max-w-[40px]">
-            {{ hostName }}
-          </p>
         </div>
-        <!-- Track info -->
-        <div class="flex-1 min-w-0 flex flex-col justify-center">
-          <p
-            class="font-pixel text-[10px] text-neon-blue truncate"
-            :title="displayTitle"
-          >
-            {{ displayTitle }}
-          </p>
-          <p
-            class="font-pixel text-[8px] text-neon-purple mt-1 truncate"
-            :title="displayArtist"
-          >
-            {{ displayArtist }}
-          </p>
-        </div>
+        <p v-if="hostName" class="font-pixel text-[9px] text-neon-purple truncate max-w-[144px]">
+          {{ hostName }}
+        </p>
+      </div>
+
+      <!-- Track info -->
+      <div class="flex flex-col items-center gap-1">
+        <p
+          class="font-pixel text-xs text-neon-blue truncate max-w-full"
+          :title="displayTitle"
+        >
+          {{ displayTitle }}
+        </p>
+        <p
+          class="font-pixel text-[10px] text-neon-purple truncate max-w-full"
+          :title="displayArtist"
+        >
+          {{ displayArtist }}
+        </p>
       </div>
 
       <!-- Visualizer bars -->
       <canvas
         ref="vizCanvas"
-        width="240"
-        height="16"
-        class="w-full h-4 block"
+        width="340"
+        height="20"
+        class="w-full h-5 block"
       ></canvas>
     </div>
 
     <!-- Controls area -->
-    <div class="p-4 space-y-4">
+    <div class="p-5 space-y-4">
       <!-- Play / Stop -->
       <div class="flex justify-center">
         <button
-          class="w-12 h-12 border-2 flex items-center justify-center transition-colors
+          class="w-14 h-14 border-2 flex items-center justify-center transition-colors
                  focus:outline-none active:translate-x-[2px] active:translate-y-[2px] active:shadow-none"
           :class="buttonClass"
           :disabled="playerStore.isLoading"
           @click="handleToggle"
         >
           <!-- Loading -->
-          <span v-if="playerStore.isLoading" class="font-pixel text-[8px] text-neon-blue animate-pulse">...</span>
+          <span v-if="playerStore.isLoading" class="font-pixel text-[10px] text-neon-blue animate-pulse">...</span>
           <!-- Stop -->
-          <svg v-else-if="playerStore.isPlaying" class="w-5 h-5 text-neon-pink" viewBox="0 0 16 16" fill="currentColor">
+          <svg v-else-if="playerStore.isPlaying" class="w-6 h-6 text-neon-pink" viewBox="0 0 16 16" fill="currentColor">
             <rect x="3" y="3" width="10" height="10" />
           </svg>
           <!-- Play -->
-          <svg v-else class="w-5 h-5 text-neon-blue ml-0.5" viewBox="0 0 16 16" fill="currentColor">
+          <svg v-else class="w-6 h-6 text-neon-blue ml-0.5" viewBox="0 0 16 16" fill="currentColor">
             <polygon points="3,1 13,8 3,15" />
           </svg>
         </button>
       </div>
 
       <!-- Volume -->
-      <div class="flex items-center gap-2">
-        <span class="font-pixel text-[8px] text-dark-accent">VOL</span>
+      <div class="flex items-center gap-3">
+        <span class="font-pixel text-[9px] text-dark-accent">VOL</span>
         <div class="flex-1 relative h-4 flex items-center">
           <input
             type="range"
@@ -106,14 +110,14 @@
             @input="onVolumeInput"
           />
         </div>
-        <span class="font-pixel text-[8px] text-neon-blue w-6 text-right">
+        <span class="font-pixel text-[9px] text-neon-blue w-7 text-right">
           {{ Math.round(playerStore.volume * 100) }}
         </span>
       </div>
 
       <!-- Error -->
-      <div v-if="playerStore.error" class="h-4 flex items-center justify-center">
-        <p class="font-pixel text-[8px] text-neon-pink text-center">
+      <div v-if="playerStore.error" class="h-5 flex items-center justify-center">
+        <p class="font-pixel text-[9px] text-neon-pink text-center">
           {{ playerStore.error }}
         </p>
       </div>
@@ -133,7 +137,13 @@ const vizCanvas = ref<HTMLCanvasElement | null>(null)
 // Active block polling (30-second interval)
 let activeBlockTimer: ReturnType<typeof setInterval> | null = null
 
-const hostAvatar = computed(() => scheduleStore.activeBlock?.host_avatar_url ?? null)
+const apiBase = import.meta.env.VITE_API_URL || ''
+const hostAvatar = computed(() => {
+  const url = scheduleStore.activeBlock?.host_avatar_url
+  if (!url) return null
+  // Relative paths need the API base URL prefix for <img> src
+  return url.startsWith('http') ? url : `${apiBase}${url}`
+})
 const hostName = computed(() => scheduleStore.activeBlock?.host_name ?? null)
 
 // Canvas-based visualizer — no DOM thrashing

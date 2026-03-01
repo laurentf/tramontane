@@ -1,5 +1,7 @@
 """Smoke tests for health endpoint and auth routes."""
 
+from unittest.mock import AsyncMock
+
 import pytest
 from httpx import AsyncClient
 
@@ -20,12 +22,14 @@ async def test_auth_session_requires_auth(async_client: AsyncClient) -> None:
 
 @pytest.mark.unit
 async def test_auth_session_with_token(
-    async_client: AsyncClient, auth_headers: dict[str, str]
+    async_client: AsyncClient, auth_headers: dict[str, str], mock_db_pool: AsyncMock,
 ) -> None:
+    mock_db_pool.fetchval = AsyncMock(return_value="admin@test.com")
     response = await async_client.get("/api/v1/auth/session", headers=auth_headers)
     assert response.status_code == 200
     data = response.json()
     assert data["user_id"] == "test-user-id"
+    assert data["email"] == "admin@test.com"
 
 
 @pytest.mark.unit

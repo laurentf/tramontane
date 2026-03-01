@@ -11,7 +11,7 @@ logger = structlog.get_logger(__name__)
 
 
 _UPDATABLE_COLUMNS = frozenset({
-    "name", "status", "description", "voice_id",
+    "name", "status", "description", "voice_id", "voice_provider",
     "avatar_url", "avatar_status", "avatar_prompt",
     "avatar_generation_id",
 })

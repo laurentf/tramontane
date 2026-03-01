@@ -23,6 +23,7 @@ Tramontane is a platform for running AI-driven web radio stations. Define radio 
 - Leonardo AI avatar generation (async with polling)
 - Host management with avatar regeneration (admin) and read-only host profiles (all users)
 - Skill system (weather lookup, web search) with YAML manifests and prompt injection
+- Per-template prompt templates (core identity, output format text/voice, greeting, show/track intros)
 
 ### Schedule
 - Schedule block CRUD (music and talk blocks) with time slots

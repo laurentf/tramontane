@@ -61,6 +61,18 @@ class TemplateField(BaseModel):
     options: list[FieldOption] | None = None
 
 
+class PromptTemplates(BaseModel):
+    """Structured prompt templates for radio host LLM generation."""
+
+    core_identity_template: str
+    output_format_text: str
+    output_format_voice: str
+    greeting_prompt: str | None = None
+    show_intro_template: str | None = None
+    track_intro_template: str | None = None
+    fallback_identity: str | None = None
+
+
 class TemplateSchema(BaseModel):
     """Radio host personality template loaded from YAML."""
 
@@ -74,6 +86,7 @@ class TemplateSchema(BaseModel):
     avatar_generation_params: dict[str, Any]
     avatar_style_hint: str
     enrichment_prompt: str
+    prompt_templates: PromptTemplates | None = None
 
 
 # ---------------------------------------------------------------------------
@@ -141,6 +154,7 @@ class HostUpdate(BaseModel):
     """Request body for updating a host."""
 
     name: str | None = Field(None, min_length=1, max_length=50)
+    voice_provider: str | None = None
     status: HostStatus | None = None
 
 
@@ -155,6 +169,7 @@ class HostResponse(BaseModel):
     avatar_url: str | None
     avatar_status: AvatarStatus
     voice_id: str | None
+    voice_provider: str
     status: HostStatus
     created_at: str
     updated_at: str

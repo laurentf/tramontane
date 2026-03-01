@@ -47,6 +47,7 @@ def _row_to_response(row: dict) -> HostResponse:
         avatar_url=row.get("avatar_url"),
         avatar_status=row.get("avatar_status", "pending"),
         voice_id=row.get("voice_id"),
+        voice_provider=row.get("voice_provider", "elevenlabs"),
         status=row.get("status", "draft"),
         created_at=str(row["created_at"]),
         updated_at=str(row["updated_at"]),
