@@ -153,18 +153,28 @@ class ScheduleRepository:
     ) -> bool:
         """Check if a proposed time slot overlaps with existing blocks.
 
+        Handles midnight-crossing blocks for both the proposed and existing slots.
         Returns True if an overlap exists.
         """
         async with self.pool.acquire(timeout=10) as conn:
             has_overlap = await conn.fetchval(
                 """
                 SELECT EXISTS (
-                    SELECT 1 FROM schedule_blocks
-                    WHERE user_id = $1
-                    AND id != COALESCE($2, '00000000-0000-0000-0000-000000000000'::uuid)
-                    AND (day_of_week IS NULL OR $3::int IS NULL OR day_of_week = $3::int)
-                    AND start_time < $5::text::time
-                    AND end_time > $4::text::time
+                    SELECT 1 FROM schedule_blocks sb
+                    WHERE sb.user_id = $1
+                    AND sb.id != COALESCE($2, '00000000-0000-0000-0000-000000000000'::uuid)
+                    AND (sb.day_of_week IS NULL OR $3::int IS NULL OR sb.day_of_week = $3::int)
+                    AND NOT (
+                        CASE WHEN $4::text::time < $5::text::time
+                            THEN $5::text::time <= sb.start_time OR $4::text::time >= sb.end_time
+                            ELSE $5::text::time <= sb.start_time AND $4::text::time >= sb.end_time
+                        END
+                        AND
+                        CASE WHEN sb.start_time < sb.end_time
+                            THEN sb.end_time <= $4::text::time OR sb.start_time >= $5::text::time
+                            ELSE sb.end_time <= $4::text::time AND sb.start_time >= $5::text::time
+                        END
+                    )
                 ) AS has_overlap
                 """,
                 user_id,
@@ -175,8 +185,52 @@ class ScheduleRepository:
             )
         return bool(has_overlap)
 
+    async def get_by_id_unscoped(self, block_id: str) -> dict | None:
+        """Get a schedule block by ID without user scope (for worker tasks).
+
+        Used by ARQ workers that don't have user context.
+        """
+        async with self.pool.acquire(timeout=10) as conn:
+            row = await conn.fetchrow(
+                """
+                SELECT sb.*, h.name AS host_name, h.avatar_url AS host_avatar_url,
+                       h.template_id AS host_template_id
+                FROM schedule_blocks sb
+                LEFT JOIN hosts h ON sb.host_id = h.id
+                WHERE sb.id = $1
+                """,
+                block_id,
+            )
+        return dict(row) if row else None
+
+    async def get_upcoming_blocks(self, within_seconds: int = 60) -> list[dict]:
+        """Find blocks starting within the next N seconds.
+
+        Used for pre-generating content ahead of block start.
+        """
+        async with self.pool.acquire(timeout=10) as conn:
+            rows = await conn.fetch(
+                """
+                SELECT sb.*, h.name AS host_name, h.avatar_url AS host_avatar_url,
+                       h.template_id AS host_template_id
+                FROM schedule_blocks sb
+                LEFT JOIN hosts h ON sb.host_id = h.id
+                WHERE sb.is_active = true
+                AND (sb.day_of_week IS NULL OR sb.day_of_week = EXTRACT(DOW FROM NOW())::int)
+                AND sb.start_time > NOW()::time
+                AND sb.start_time <= (NOW() + INTERVAL '1 second' * $1)::time
+                ORDER BY sb.start_time ASC
+                """,
+                within_seconds,
+            )
+        return [dict(r) for r in rows]
+
     async def get_active_block(self) -> dict | None:
-        """Find the schedule block active right now based on server time."""
+        """Find the schedule block active right now based on server time.
+
+        Handles midnight-crossing blocks (e.g. 23:00-01:00) by switching
+        the time comparison logic when start_time >= end_time.
+        """
         async with self.pool.acquire(timeout=10) as conn:
             row = await conn.fetchrow(
                 """
@@ -186,10 +240,58 @@ class ScheduleRepository:
                 LEFT JOIN hosts h ON sb.host_id = h.id
                 WHERE sb.is_active = true
                 AND (sb.day_of_week IS NULL OR sb.day_of_week = EXTRACT(DOW FROM NOW())::int)
-                AND sb.start_time <= NOW()::time
-                AND sb.end_time > NOW()::time
+                AND (
+                    CASE WHEN sb.start_time < sb.end_time
+                        THEN sb.start_time <= NOW()::time AND sb.end_time > NOW()::time
+                        ELSE sb.start_time <= NOW()::time OR sb.end_time > NOW()::time
+                    END
+                )
                 ORDER BY sb.start_time DESC
                 LIMIT 1
                 """,
+            )
+        return dict(row) if row else None
+
+    async def get_next_block(self, after_time: str) -> dict | None:
+        """Find the next active block starting at or after *after_time*.
+
+        Used for closing prompts ("I pass to {next_host}").
+        """
+        async with self.pool.acquire(timeout=10) as conn:
+            row = await conn.fetchrow(
+                """
+                SELECT sb.*, h.name AS host_name, h.avatar_url AS host_avatar_url,
+                       h.template_id AS host_template_id
+                FROM schedule_blocks sb
+                LEFT JOIN hosts h ON sb.host_id = h.id
+                WHERE sb.is_active = true
+                AND (sb.day_of_week IS NULL OR sb.day_of_week = EXTRACT(DOW FROM NOW())::int)
+                AND sb.start_time >= $1::text::time
+                ORDER BY sb.start_time ASC
+                LIMIT 1
+                """,
+                after_time,
+            )
+        return dict(row) if row else None
+
+    async def get_previous_block(self, before_time: str) -> dict | None:
+        """Find the most recent active block ending at or before *before_time*.
+
+        Used for opening prompts ("taking over from {prev_host}").
+        """
+        async with self.pool.acquire(timeout=10) as conn:
+            row = await conn.fetchrow(
+                """
+                SELECT sb.*, h.name AS host_name, h.avatar_url AS host_avatar_url,
+                       h.template_id AS host_template_id
+                FROM schedule_blocks sb
+                LEFT JOIN hosts h ON sb.host_id = h.id
+                WHERE sb.is_active = true
+                AND (sb.day_of_week IS NULL OR sb.day_of_week = EXTRACT(DOW FROM NOW())::int)
+                AND sb.end_time <= $1::text::time
+                ORDER BY sb.end_time DESC
+                LIMIT 1
+                """,
+                before_time,
             )
         return dict(row) if row else None

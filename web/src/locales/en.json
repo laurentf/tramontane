@@ -101,7 +101,12 @@
     "account": "Account",
     "signOutConfirm": "Are you sure you want to sign out?",
     "saved": "Settings saved",
-    "saving": "Saving..."
+    "saving": "Saving...",
+    "musicLibrary": "Music Library",
+    "scanDescription": "Scan the music directory to import new tracks into the library.",
+    "scanMusic": "SCAN MUSIC",
+    "scanning": "SCANNING...",
+    "scanResult": "{scanned} files scanned, {stored} tracks imported"
   },
   "common": {
     "loading": "LOADING...",

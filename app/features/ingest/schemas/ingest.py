@@ -2,6 +2,8 @@
 
 from pydantic import BaseModel, Field
 
+from app.core.config import get_settings
+
 
 class TrackTag(BaseModel):
     """A single tag on a track."""
@@ -26,7 +28,8 @@ class ScanRequest(BaseModel):
     """Request body for scanning and ingesting a music directory."""
 
     directory: str = Field(
-        default="/music", description="Path to the directory to scan for audio files"
+        default_factory=lambda: get_settings().music_dir,
+        description="Path to the directory to scan for audio files",
     )
 
 

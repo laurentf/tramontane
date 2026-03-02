@@ -53,6 +53,7 @@ class Settings(BaseSettings):
 
     # TTS
     tts_provider: str | None = Field(default="elevenlabs")
+    tts_model: str = Field(default="eleven_v3")
     elevenlabs_api_key: SecretStr | None = Field(default=None)
 
     # Image
@@ -73,6 +74,12 @@ class Settings(BaseSettings):
     # Streaming
     icecast_url: str | None = Field(default=None)
     liquidsoap_harbor_url: str | None = Field(default=None)
+
+    # Music
+    music_dir: str = Field(default="/music")
+
+    # Station
+    station_location: str = Field(default="Montpellier, France")
 
     # App
     debug: bool = Field(default=False)

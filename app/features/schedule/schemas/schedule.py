@@ -37,9 +37,9 @@ class ScheduleBlockCreate(BaseModel):
         return _validate_time(v, "end_time")
 
     @model_validator(mode="after")
-    def check_end_after_start(self) -> ScheduleBlockCreate:
-        if self.end_time <= self.start_time:
-            raise ValueError("end_time must be after start_time")
+    def check_times_differ(self) -> ScheduleBlockCreate:
+        if self.end_time == self.start_time:
+            raise ValueError("end_time must differ from start_time")
         return self
 
 

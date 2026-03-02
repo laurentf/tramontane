@@ -20,6 +20,44 @@ def _get_harbor_url() -> str:
     return settings.liquidsoap_harbor_url or LIQUIDSOAP_HARBOR_URL
 
 
+async def get_queue_status() -> dict:
+    """Query Liquidsoap queue depth and current track timing.
+
+    Returns dict with 'length' (pending tracks), 'remaining', 'elapsed', 'duration'.
+    On error returns {'length': -1} so callers don't block on failure.
+    """
+    harbor_url = _get_harbor_url()
+    try:
+        async with httpx.AsyncClient(timeout=3.0) as client:
+            response = await client.get(f"{harbor_url}/queue-status")
+            response.raise_for_status()
+            return response.json()
+    except httpx.ConnectError:
+        logger.debug("liquidsoap_queue_status_unavailable", harbor_url=harbor_url)
+        return {"length": -1}
+    except Exception:
+        logger.warning("liquidsoap_queue_status_error", harbor_url=harbor_url)
+        return {"length": -1}
+
+
+async def flush_queue() -> bool:
+    """Flush the Liquidsoap request queue and skip current queued track.
+
+    Used on cold start to clear stale tracks from previous worker runs.
+    Returns True on success, False on error.
+    """
+    harbor_url = _get_harbor_url()
+    try:
+        async with httpx.AsyncClient(timeout=5.0) as client:
+            response = await client.post(f"{harbor_url}/flush")
+            response.raise_for_status()
+            logger.info("liquidsoap_queue_flushed", response=response.json())
+            return True
+    except Exception:
+        logger.warning("liquidsoap_flush_error", harbor_url=harbor_url)
+        return False
+
+
 async def push_track(file_path: str) -> dict[str, str]:
     """Push a track to Liquidsoap's request queue via Harbor HTTP.
 

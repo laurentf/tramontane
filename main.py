@@ -109,7 +109,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     if settings.stt_provider:
         providers.append(("STT", f"{settings.stt_provider} ({settings.stt_model})"))
     if settings.tts_provider:
-        providers.append(("TTS", settings.tts_provider))
+        providers.append(("TTS", f"{settings.tts_provider} ({settings.tts_model})"))
     if settings.leonardo_api_key:
         providers.append(("Image", "leonardo"))
     if settings.search_provider:

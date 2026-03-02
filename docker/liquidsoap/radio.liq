@@ -11,10 +11,17 @@ settings.server.telnet.port := 1234
 # ---------------------------------------------------------------------------
 
 queue = request.queue(id="queue")
-fallback_playlist = playlist(id="fallback", mode="random", "/music")
 
-# Fallback chain: queue -> library -> silence
-radio = fallback(track_sensitive=false, [queue, mksafe(fallback_playlist)])
+# Pre-recorded station bumpers for idle hours (generated once via LLM+TTS).
+# Played during dead hours when no active block is scheduled, giving the
+# station a radio feel without ongoing token cost.
+bumpers = playlist(id="bumpers", mode="randomize", reload_mode="watch", "/music/bumpers/")
+
+fallback_playlist = playlist(id="fallback", mode="random", "/music/library/")
+
+# Fallback chain: queue -> bumpers -> library -> silence
+# /music/generated/ paths start with /music/, so push_handler validation works.
+radio = fallback(track_sensitive=false, [queue, bumpers, mksafe(fallback_playlist)])
 
 # Volume normalization
 enable_replaygain_metadata()
@@ -70,4 +77,36 @@ harbor.http.register(
   method="GET",
   "/now-playing",
   now_playing_handler
+)
+
+# POST /flush - Clear the request queue and skip current track
+def flush_handler(_, response) =
+  ignore(server.execute("queue.flush_and_skip"))
+  response.json({status = "ok", message = "Queue flushed"})
+end
+
+harbor.http.register(
+  port=8080,
+  method="POST",
+  "/flush",
+  flush_handler
+)
+
+# GET /queue-status - Queue depth + current track timing
+def queue_status_handler(_, response) =
+  result = server.execute("queue.queue")
+  pending = string.concat(separator="\n", result)
+  trimmed = string.trim(pending)
+  n = if trimmed == "" then 0 else list.length(string.split(separator="\n", trimmed)) end
+  rem = queue.remaining()
+  elapsed = queue.elapsed()
+  dur = queue.duration()
+  response.json({length = n, remaining = rem, elapsed = elapsed, duration = dur})
+end
+
+harbor.http.register(
+  port=8080,
+  method="GET",
+  "/queue-status",
+  queue_status_handler
 )

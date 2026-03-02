@@ -9,6 +9,7 @@ from collections.abc import Callable, Coroutine
 from typing import Any, ClassVar
 
 import structlog
+from arq import cron
 from arq.connections import RedisSettings
 
 logger = structlog.get_logger(__name__)
@@ -48,19 +49,54 @@ async def ping(ctx: dict[str, Any]) -> str:
     return "pong"
 
 
-# Lazy import to avoid circular dependencies at module level.
+# ---------------------------------------------------------------------------
+# Lazy imports to avoid circular dependencies at module level.
+# ---------------------------------------------------------------------------
+
+
 def _get_avatar_task() -> Callable[..., Coroutine[Any, Any, Any]]:
     from app.features.hosts.services.avatar_service import generate_host_avatar
 
     return generate_host_avatar
 
 
+def _get_content_segment_task() -> Callable[..., Coroutine[Any, Any, Any]]:
+    from app.features.content.services.schedule_engine import generate_content_segment
+
+    return generate_content_segment
+
+
+def _get_bumpers_task() -> Callable[..., Coroutine[Any, Any, Any]]:
+    from app.features.content.services.bumper_generator import generate_bumpers_task
+
+    return generate_bumpers_task
+
+
+def _get_embed_tracks_task() -> Callable[..., Coroutine[Any, Any, Any]]:
+    from app.features.content.services.embedding_ingest import embed_tracks_task
+
+    return embed_tracks_task
+
+
+def _get_schedule_tick() -> Callable[..., Coroutine[Any, Any, Any]]:
+    from app.features.content.services.schedule_engine import schedule_tick
+
+    return schedule_tick
+
+
 class WorkerSettings:
     functions: ClassVar[list[Callable[..., Coroutine[Any, Any, Any]]]] = [
         ping,
         _get_avatar_task(),
+        _get_content_segment_task(),
+        _get_bumpers_task(),
+        _get_embed_tracks_task(),
     ]
-    cron_jobs: ClassVar[list[Any]] = []
+    cron_jobs: ClassVar[list[Any]] = [
+        # Schedule engine heartbeat: fires every 60 seconds.
+        # Checks for active blocks and dispatches content generation.
+        cron(_get_schedule_tick(), second={0}, unique=True),
+    ]
     on_startup = startup
     on_shutdown = shutdown
     redis_settings = _get_redis_settings()

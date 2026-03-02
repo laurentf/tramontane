@@ -65,7 +65,7 @@ def make_mock_verify(user_id: str = "test-user-id"):
 def mock_db_pool() -> AsyncMock:
     """Mock asyncpg connection pool for testing."""
     mock_conn = AsyncMock()
-    mock_conn.fetchval = AsyncMock(return_value=1)
+    mock_conn.fetchval = AsyncMock(return_value="admin@test.com")
     mock_conn.fetchrow = AsyncMock(return_value=None)
     mock_conn.fetch = AsyncMock(return_value=[])
     mock_conn.execute = AsyncMock(return_value="SELECT 1")

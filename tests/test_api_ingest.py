@@ -24,7 +24,7 @@ async def test_scan_rejects_path_traversal(
         headers=auth_headers,
     )
     assert response.status_code == 422
-    assert "must be within /music" in response.json()["error"].lower()
+    assert "must be within" in response.json()["error"].lower()
 
 
 @pytest.mark.unit

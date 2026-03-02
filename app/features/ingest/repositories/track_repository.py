@@ -66,6 +66,15 @@ class TrackRepository:
             )
         return track_id
 
+    async def get_by_id(self, track_id: str | UUID) -> TrackRow | None:
+        """Look up a track by its ID."""
+        async with self.pool.acquire(timeout=10) as conn:
+            row = await conn.fetchrow(
+                "SELECT * FROM tracks WHERE id = $1",
+                UUID(str(track_id)),
+            )
+        return dict(row) if row else None  # type: ignore[return-value]
+
     async def get_by_file_path(self, file_path: str) -> TrackRow | None:
         """Look up a track by its file path."""
         async with self.pool.acquire(timeout=10) as conn:

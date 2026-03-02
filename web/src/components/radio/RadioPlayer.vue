@@ -207,8 +207,17 @@ onUnmounted(() => {
   if (activeBlockTimer !== null) clearInterval(activeBlockTimer)
 })
 
-const displayTitle = computed(() => playerStore.nowPlaying?.title || 'TRAMONTANE RADIO')
-const displayArtist = computed(() => playerStore.nowPlaying?.artist || 'TUNE IN')
+// When no active block, force idle display regardless of stale Icecast metadata
+const hasActiveBlock = computed(() => !!scheduleStore.activeBlock?.block)
+
+const displayTitle = computed(() => {
+  if (!hasActiveBlock.value) return 'TRAMONTANE RADIO'
+  return playerStore.nowPlaying?.title || 'TRAMONTANE RADIO'
+})
+const displayArtist = computed(() => {
+  if (!hasActiveBlock.value) return 'TUNE IN'
+  return playerStore.nowPlaying?.artist || 'TUNE IN'
+})
 
 const buttonClass = computed(() => {
   if (playerStore.isLoading) return 'border-dark-accent bg-dark-bg cursor-wait'

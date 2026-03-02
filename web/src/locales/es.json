@@ -101,7 +101,12 @@
     "account": "Cuenta",
     "signOutConfirm": "Estas seguro de que quieres cerrar sesion?",
     "saved": "Ajustes guardados",
-    "saving": "Guardando..."
+    "saving": "Guardando...",
+    "musicLibrary": "Biblioteca musical",
+    "scanDescription": "Escanear la carpeta de musica para importar nuevas pistas.",
+    "scanMusic": "ESCANEAR MUSICA",
+    "scanning": "ESCANEANDO...",
+    "scanResult": "{scanned} archivos escaneados, {stored} pistas importadas"
   },
   "common": {
     "loading": "CARGANDO...",

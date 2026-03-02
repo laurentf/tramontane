@@ -5,6 +5,7 @@ from pathlib import Path
 import structlog
 from fastapi import APIRouter, Depends
 
+from app.core.config import get_settings
 from app.core.exceptions import NotFoundError, ValidationError
 from app.core.security import require_admin
 from app.features.radio.schemas.radio import (
@@ -39,9 +40,10 @@ async def push_track(
 
     Validates that the file exists on disk before sending to Liquidsoap.
     """
-    # Validate file exists and is within /music
+    # Validate file exists and is within music directory
+    music_root = Path(get_settings().music_dir).resolve()
     track_path = Path(body.file_path).resolve()
-    if not track_path.is_relative_to(Path("/music")):
+    if not track_path.is_relative_to(music_root):
         logger.warning("push_track_path_traversal", file_path=body.file_path)
         raise ValidationError("File path outside allowed directory")
     if not track_path.is_file():

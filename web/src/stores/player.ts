@@ -96,10 +96,9 @@ export const usePlayerStore = defineStore('player', () => {
         skipAuth: true,
       })
       if (data) {
-        nowPlaying.value = {
-          title: data.title || 'Unknown Track',
-          artist: data.artist || 'Unknown Artist',
-        }
+        const title = data.title && data.title !== 'Unknown Track' ? data.title : null
+        const artist = data.artist && data.artist !== 'Unknown Artist' ? data.artist : null
+        nowPlaying.value = title ? { title, artist: artist || '' } : null
       }
     } catch {
       // Graceful degradation — player still works without metadata

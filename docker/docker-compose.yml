@@ -25,6 +25,7 @@ services:
     volumes:
       - ../app:/app/app
       - ../main.py:/app/main.py
+      - ../music:/music
     env_file: ../.env
     environment:
       REDIS_URL: redis://redis:6379/0
@@ -49,6 +50,7 @@ services:
     volumes:
       - ../app:/app/app
       - ../main.py:/app/main.py
+      - ../music:/music
     env_file: ../.env
     environment:
       REDIS_URL: redis://redis:6379/0
@@ -93,19 +95,9 @@ services:
     build:
       context: ..
       dockerfile: docker/Dockerfile.web
-      target: dev
+      target: prod
     ports:
-      - "3000:5173"
-    volumes:
-      - ../web/src:/app/src
-      - ../web/public:/app/public
-      - ../web/index.html:/app/index.html
-      - ../web/vite.config.ts:/app/vite.config.ts
-      - ../web/tailwind.config.js:/app/tailwind.config.js
-      - ../web/postcss.config.js:/app/postcss.config.js
-      - ../web/tsconfig.json:/app/tsconfig.json
-      - ../web/tsconfig.node.json:/app/tsconfig.node.json
-    env_file: ../web/.env
+      - "3000:80"
     restart: unless-stopped
     depends_on:
       - api

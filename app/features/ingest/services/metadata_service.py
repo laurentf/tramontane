@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 import structlog
@@ -51,9 +52,9 @@ def read_metadata(filepath: Path) -> TrackMetadata:
     # Build tags from ID3 fields
     track_tags: list[TrackTag] = []
 
-    # Genre tags — ID3 genre can contain multiple values
+    # Genre tags — ID3 genre can contain multiple values (split on , ; or /)
     for genre in tags.get("genre", []):
-        for genre_val in genre.split(";"):
+        for genre_val in re.split(r"[,;/]", genre):
             genre_val = genre_val.strip().lower()
             if genre_val:
                 track_tags.append(TrackTag(tag=genre_val, category="genre", source="id3"))

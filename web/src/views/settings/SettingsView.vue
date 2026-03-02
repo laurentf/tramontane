@@ -59,6 +59,25 @@
         </div>
       </section>
 
+      <!-- Music Library section (admin only) -->
+      <section v-if="authStore.isAdmin" class="bg-dark-surface border border-dark-accent shadow-pixel p-6 space-y-4">
+        <h2 class="font-pixel text-sm text-neon-blue mb-4">{{ t('settings.musicLibrary') }}</h2>
+        <p class="text-sm text-gray-400">{{ t('settings.scanDescription') }}</p>
+        <button
+          @click="scanMusic"
+          :disabled="isScanning"
+          class="w-full font-pixel text-xs bg-neon-blue text-white px-6 py-3 shadow-pixel hover:brightness-110 transition-all disabled:opacity-50"
+        >
+          {{ isScanning ? t('settings.scanning') : t('settings.scanMusic') }}
+        </button>
+        <p v-if="scanResult" class="font-pixel text-[8px] text-neon-purple text-center">
+          {{ scanResult }}
+        </p>
+        <p v-if="scanError" class="font-pixel text-[8px] text-neon-pink text-center">
+          {{ scanError }}
+        </p>
+      </section>
+
       <!-- Account section -->
       <section class="bg-dark-surface border border-dark-accent shadow-pixel p-6 space-y-4">
         <h2 class="font-pixel text-sm text-neon-blue mb-4">{{ t('settings.account') }}</h2>
@@ -124,12 +143,16 @@ import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useSettingsStore } from '@/stores/settings'
+import { api } from '@/lib/api'
 
 const { t, locale } = useI18n()
 const router = useRouter()
 const authStore = useAuthStore()
 const settingsStore = useSettingsStore()
 
+const isScanning = ref(false)
+const scanResult = ref<string | null>(null)
+const scanError = ref<string | null>(null)
 const isSigningOut = ref(false)
 const showSignOutConfirm = ref(false)
 const currentLanguage = ref(locale.value)
@@ -176,6 +199,20 @@ function saveIfChanged() {
   if (form.location !== s.location) updates.location = form.location
   if (Object.keys(updates).length > 0) {
     settingsStore.updateSettings(updates)
+  }
+}
+
+async function scanMusic() {
+  isScanning.value = true
+  scanResult.value = null
+  scanError.value = null
+  try {
+    const result = await api.post<{ scanned: number; stored: number }>('/api/v1/ingest/scan', {})
+    scanResult.value = t('settings.scanResult', { scanned: result.scanned, stored: result.stored })
+  } catch (err) {
+    scanError.value = err instanceof Error ? err.message : 'Scan failed'
+  } finally {
+    isScanning.value = false
   }
 }
 

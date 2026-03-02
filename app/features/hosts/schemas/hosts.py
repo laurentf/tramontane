@@ -70,6 +70,8 @@ class PromptTemplates(BaseModel):
     greeting_prompt: str | None = None
     show_intro_template: str | None = None
     track_intro_template: str | None = None
+    block_opening_template: str | None = None
+    block_closing_template: str | None = None
     fallback_identity: str | None = None
 
 

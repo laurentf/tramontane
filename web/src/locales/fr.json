@@ -101,7 +101,12 @@
     "account": "Compte",
     "signOutConfirm": "Etes-vous sur de vouloir vous deconnecter ?",
     "saved": "Parametres sauvegardes",
-    "saving": "Sauvegarde..."
+    "saving": "Sauvegarde...",
+    "musicLibrary": "Bibliotheque musicale",
+    "scanDescription": "Scanner le dossier musique pour importer de nouveaux morceaux.",
+    "scanMusic": "SCANNER LA MUSIQUE",
+    "scanning": "SCAN EN COURS...",
+    "scanResult": "{scanned} fichiers scannes, {stored} morceaux importes"
   },
   "common": {
     "loading": "CHARGEMENT...",
