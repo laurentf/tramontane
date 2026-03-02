@@ -6,7 +6,23 @@ Autonomous self-hosted web radio powered by AI.
 
 ## What is it
 
-Tramontane is a platform for running AI-driven web radio stations. Define radio hosts with their own personality, background, and style. Set the radio theme, topics of interest, manage planning and scheduling, and let the AI handle interviews, podcasts, and live content autonomously.
+Tramontane is a platform for running AI-driven web radio stations. Define radio hosts with their own personality, background, and style. Set the radio theme, topics of interest, manage planning and scheduling, and let the AI handle the rest autonomously. Today hosts deliver block openings (with live weather & news), song transitions (reacting to the previous track and teasing the next), and handoffs between hosts. Interviews, podcasts, and dedicated talk segments are on the roadmap.
+
+## Mistral models usage
+
+Mistral is the core AI engine — all text generation, analysis, and embeddings run on Mistral models. Image generation uses Leonardo AI, voice synthesis uses ElevenLabs.
+
+| Model | Type | Env var | Purpose |
+|-------|------|---------|---------|
+| `labs-mistral-small-creative` | LLM (chat) | `LLM_MODEL` | Host personality enrichment, on-air transition scripts, block openings/closings, music curation from candidate shortlist, tool-calling (weather & news during openings) |
+| `mistral-embed` | Embedding | `EMBEDDING_MODEL` | Track metadata embedding into pgvector for semantic music selection |
+| `mistral-tiny-latest` | Analyzer (structured JSON) | `ANALYZER_MODEL` | **Planned** — LLM-based genre/mood auto-tagging during music scan (adapter ready, not yet wired) |
+| `voxtral-mini-latest` | Speech (STT) | `STT_MODEL` | **Planned** — transcribe listener voice messages so the host can react on air, conduct live on-air interviews |
+
+- **LLM** — the creative workhorse. Used at host creation (generates the full personality profile from a template + user input), and at runtime for every on-air segment (block openings with live data, song transitions, host handoffs, music curation). Supports tool-calling via the AIGateway orchestrator so the LLM can fetch weather and news mid-generation. This version uses `labs-mistral-small-creative` — easily swappable to `mistral-small-latest`, `mistral-large-latest`, etc. via the `LLM_MODEL` env var.
+- **Embedding** — `mistral-embed` (default, configurable via `EMBEDDING_MODEL`) is called during scan to vectorize track metadata (`"title by artist | genre | mood"`) into pgvector. At runtime, the block description is embedded with the same model and compared via cosine similarity to find matching tracks.
+- **Analyzer** — structured JSON adapter (`mistral-tiny-latest`). The adapter and provider are ready but not yet wired into the scan pipeline. Currently genre/mood tags come from ID3 metadata only. Next step: call the analyzer during scan to auto-tag tracks that have sparse or missing ID3 tags. Configurable via `ANALYZER_MODEL`.
+- **Voxtral** (`voxtral-mini-latest`, configurable via `STT_MODEL`) — planned for listener interaction: transcribe voice messages from chat so the host can react on air, and conduct live on-air interviews where the host listens and responds to callers in real time.
 
 ## Features
 
@@ -14,29 +30,37 @@ Tramontane is a platform for running AI-driven web radio stations. Define radio 
 
 Pick a personality template (Chill DJ, Comedy Host, Culture Reviewer, Journalist), give them a name, choose a tone and backstory. Mistral generates the full personality profile — a rich self-description, system prompt, and avatar generation prompt — all in the language configured in your station settings. Leonardo AI then generates a unique avatar asynchronously. Each host has their own voice (ElevenLabs), speaking style, and on-air personality that stays consistent across every segment they deliver.
 
-![Host creation](images/hosts.png)
+Templates are fully YAML-driven — every system prompt, transition template, and personality trait lives in a plain text file you can edit without touching code. Host-specific data (description, enrichment output) is stored as JSONB in Postgres, so adding new fields or tweaking prompts requires no migrations.
+
+![Host creation](images/hosts.gif)
 
 ### Schedule the radio
 
-Define schedule blocks with time slots and assign a host to each one. Blocks can be `bloc_music` (mostly music, host speaks every ~4 tracks) or `bloc_talk` (host speaks between every track). The schedule engine runs autonomously — it reads the active block, dispatches content, and handles host handoffs at block boundaries ("Thanks for listening! I'm passing the mic to Marco..."). Outside scheduled hours, the stream plays fallback music with no AI cost.
+Define schedule blocks with time slots and assign a host to each one. Blocks can be `bloc_music` (mostly music) or `bloc_talk` (more host commentary). The host currently speaks between every track. The schedule engine runs autonomously — it reads the active block, dispatches content, and handles host handoffs at block boundaries ("Thanks for listening! I'm passing the mic to Marco..."). Outside scheduled hours, the stream plays fallback music with no AI cost.
 
-![Schedule management](images/schedule.png)
+![Schedule management](images/schedule.gif)
 
 ### AI-driven music selection
 
-When a block is active, Mistral picks each track from your local library using pgvector semantic search + LLM curation. It considers the block's genre/mood, avoids repeats (checks play history), and the host introduces or comments on tracks in character. The engine tracks a buffer budget and only pushes new content when Liquidsoap needs it — no queue overflow, no wasted API calls.
+The host picks every song. When the schedule engine needs a new track, it embeds the block description (e.g. "chill electronic vibes, lo-fi and ambient") with `mistral-embed` and runs a pgvector cosine similarity query against the track embeddings built during scan. The top 20 candidates are fetched, excluding recently played tracks to avoid repeats. Then Mistral picks the final track from that shortlist — the LLM sees each candidate's title, artist, genre, and mood, and chooses the best fit considering energy arc and variety. The host then introduces or comments on the track in character.
+
+This is the hackathon version — the similarity is purely based on text embeddings of metadata strings (`"title by artist | genre | mood"`), which is straightforward but effective enough for a demo. A refined version would factor in audio features, listener feedback, time-of-day preferences, and smoother energy transitions across a full block.
 
 ### Radio player
 
-![Radio player](images/radio.png)
+![Radio player](images/radio.gif)
 
 ### Live block openings with weather & news
 
-When a host goes on air, the engine fetches live weather (OpenWeatherMap) and current news headlines (Tavily web search) before generating the opening script. The host weaves the time of day, local weather, and a news mention into a natural 4-5 sentence welcome — all in character and in the station language. Block openings are longer and richer than regular transitions, giving each show a distinct "going live" feel.
+When a host goes on air, the engine forces a weather lookup and a news search before generating the opening script. This is intentional — the opening is the demo's "wow" moment: the host greets listeners, mentions the actual temperature and conditions in your city, then picks a real headline from today's news and reacts to it in character, all in the station language. It proves the full pipeline end-to-end: skill tool-calling (weather via OpenWeatherMap, news via Tavily), LLM script generation with live data injected into the prompt, TTS synthesis, and push to Liquidsoap — in a single seamless segment. Block openings are longer and richer than regular transitions, giving each show a distinct "going live" feel.
 
 ### Host transitions between every track
 
-Between each song, the host reacts to the previous track and introduces the next one in character. Mistral generates short, varied transition scripts (1-2 sentences) using the host's personality template. The AIGateway orchestrator supports tool-calling (weather, web search) during transitions too — the LLM can pull live info if the prompt asks for it. Every transition is synthesized via ElevenLabs TTS and pushed to Liquidsoap ahead of the music track.
+Between each song, the host reacts to the previous track and introduces the next one in character. Mistral generates short, varied transition scripts (1-2 sentences) using the host's personality template. Every transition is synthesized via ElevenLabs TTS and pushed to Liquidsoap ahead of the music track.
+
+### Host skills & tool-calling
+
+Hosts have a skill system backed by Mistral's tool-calling API. During content generation, the AIGateway orchestrator lets the LLM invoke tools mid-conversation — it calls a tool, receives the result, and weaves it into the script naturally. Two built-in skills ship today: **weather** (OpenWeatherMap — current conditions and temperature) and **web search** (Tavily — live news headlines). Skills are auto-discovered at startup from YAML manifests, so adding new ones (e.g. traffic, sports scores) requires no code changes to the orchestrator.
 
 ### Roadmap
 
@@ -146,6 +170,14 @@ Before creating hosts, go to **Settings** in the UI and set your station languag
 
 Drop MP3/FLAC/OGG files into the `/music/` directory (mapped as a Docker volume to api, worker, and liquidsoap containers). Then scan from the **Settings** page in the UI — click the scan button to trigger the ingest pipeline.
 
+![Music scan](images/scan.gif)
+
+The scan runs in three stages:
+
+1. **File discovery** — recursively walks the directory for MP3, FLAC, OGG, and WAV files.
+2. **Metadata extraction** — reads ID3/Vorbis tags with mutagen (title, artist, album, duration, genre, mood). Genre tags with multiple values (`Rock; Blues / Country`) are split automatically. Each track is upserted into Postgres (idempotent — re-run anytime to pick up new files).
+3. **Embedding** — once the scan finishes, an ARQ background job embeds every new track via `mistral-embed`. The text representation is `"{title} by {artist} | genre: {genre} | mood: {mood}"`, stored as a pgvector column. This is what powers the semantic music selection later — the schedule engine queries the embedding space with the block description to find tracks that match the vibe.
+
 You can also scan via API:
 
 ```bash
@@ -155,34 +187,37 @@ curl -X POST http://localhost:8000/api/v1/ingest/scan \
   -d '{"directory": "/music"}'
 ```
 
-Re-run anytime to pick up new files (idempotent upsert). The scanner extracts ID3 metadata and optionally tags genre/mood via Mistral.
-
 ## How it works
 
 ### Architecture overview
 
 ```
-┌──────────┐    ┌───────────┐    ┌───────────┐    ┌──────────┐
-│  Vue 3   │◄──►│  FastAPI   │◄──►│  Supabase │    │  Redis   │
-│ frontend │    │   API      │    │ (Postgres)│    │          │
-└──────────┘    └───────────┘    └───────────┘    └────┬─────┘
-                                                       │
-                ┌───────────┐                    ┌─────┴─────┐
-                │ Liquidsoap │◄───── push ──────│ ARQ Worker │
-                │  (playout) │                   │            │
-                └─────┬──────┘                   └────────────┘
+┌──────────┐    ┌────────────┐    ┌───────────┐   ┌────────────┐
+│  Vue 3   │◄──►│  FastAPI   │◄──►│  Supabase │   │   Redis    │
+│ frontend │    │   API      │    │ (Postgres)│   │            │
+└──────────┘    └────────────┘    └───────────┘   └─────┬──────┘
+                                                        │
+                ┌────────────┐                    ┌─────┴──────┐
+                │ Liquidsoap │◄───── push ────────│ ARQ Worker │
+                │  (playout) │                    │            │
+                └─────┬──────┘                    └────────────┘
                       │                           │  schedule_tick (30s cron)
                       ▼                           │  calls: Mistral, ElevenLabs
-                ┌───────────┐                     │  pushes: tracks + voice
+                ┌────────────┐                    │  pushes: tracks + voice
                 │  Icecast   │                    │
                 │ (stream)   │──► listeners       │
-                └───────────┘                     │
+                └────────────┘                    │
 ```
 
-**Three processes run in Docker:**
-1. **API** — FastAPI serving the REST API and Vue frontend
-2. **Worker** — ARQ background worker running the schedule engine cron + async jobs
-3. **Streaming** — Liquidsoap (playout engine) + Icecast (stream server)
+![Docker containers](images/docker.png)
+
+**Six containers run in Docker:**
+1. **api** — FastAPI serving the REST API
+2. **web** — Vue 3 + Vite frontend
+3. **worker** — ARQ background worker running the schedule engine cron + async jobs
+4. **redis** — state store for ARQ jobs and schedule engine cross-tick persistence
+5. **liquidsoap** — playout engine, receives track + voice pushes via Harbor HTTP
+6. **icecast** — stream server, serves the MP3 stream to listeners
 
 ### Worker jobs
 
@@ -227,26 +262,6 @@ Each push sequence lands in Liquidsoap's queue:
 [music: /music/Fire_-_Seth_Power.mp3]         (~210s)
 ```
 
-### What Mistral does
-
-Two model roles configured via env vars:
-
-| Env var | Default | Used for |
-|---------|---------|----------|
-| `LLM_MODEL` | `labs-mistral-small-creative` | Creative text: host enrichment, transition scripts, music curation |
-| `ANALYZER_MODEL` | `mistral-tiny-latest` | Cheap analysis: track tagging during ingest |
-| *(hardcoded)* | `mistral-embed` | Embeddings (track metadata → pgvector) |
-
-Any Mistral model works — `labs-mistral-small-creative` is good for personality and scripts, but `mistral-small-latest` or `mistral-medium-latest` are fine alternatives. The analyzer just needs something cheap for genre/mood tagging.
-
-| Use case | Model role | Where | What |
-|----------|-----------|-------|------|
-| **Host enrichment** | LLM | `llm_enrichment.py` | Generates personality profile (self_description, avatar prompt) from template + user input |
-| **Music selection** | LLM | `music_selector.py` | Picks next track from pgvector candidates, considering genre/mood/history/no-repeats |
-| **Transition scripts** | LLM | `transition_generator.py` | Writes host speech (track intros, block opening/closing, greetings) in character |
-| **Embeddings** | mistral-embed | `embedding_ingest.py` | Embeds track metadata (title+artist+genre+mood) into pgvector for semantic music search |
-| **Track tagging** | Analyzer | `ingest_service.py` | Auto-tags genre/mood from metadata during music scan (skipped if no API key) |
-
 ### Content pipeline
 
 ```
@@ -264,6 +279,28 @@ Prompt flow for a transition:
 2. **User prompt** = segment-specific template (`block_opening_template`, `track_intro_template`, etc.) + track info + handoff host name if applicable
 
 Each template includes variation instructions like "VARY your opening -- never start two transitions the same way" to prevent repetitive output.
+
+### Host prompt templates
+
+Every host template is a single YAML file (`app/features/hosts/templates/`). The `prompt_templates` section contains all the on-air prompts — editing a YAML file is all it takes to change how a host behaves. The templates currently used by the schedule engine:
+
+| Template | Role | Used as |
+|----------|------|---------|
+| `core_identity_template` | Defines who the host is: name, self-description (from LLM enrichment), broadcast language, on-air style | System prompt (always present) |
+| `output_format_voice` | TTS output rules: short sentences, action markers for emotion (`*sigh*`, `*laughs*`), filler words, pause markers (`...`), variation instructions | Appended to system prompt |
+| `block_opening_template` | Structured opening script: greet + weather + news headline + tease next track. Strict numbered format so the LLM doesn't ramble | User prompt on block start |
+| `track_intro_template` | React to previous track, introduce the next one. 1-2 sentences, must vary the opening every time | User prompt between songs |
+| `block_closing_template` | Wrap up the show, thank listeners, hand off to the next host by name | User prompt at block end |
+| `enrichment_prompt` | Used at host creation — Mistral generates the personality profile (self_description, short_summary, avatar_prompt) from user form input | One-shot LLM call on create |
+| `avatar_style_hint` | Visual description passed to Leonardo AI for avatar generation, also injected into `enrichment_prompt` so the LLM writes a matching avatar prompt | Leonardo image generation |
+| `fallback_identity` | Fallback self-description if the host has no enrichment data yet | System prompt fallback |
+
+Beyond the YAML templates, two more prompt sources are used at runtime:
+
+- **Skill prompts** (`app/features/hosts/skills/weather/prompt.md`, `web_search/prompt.md`) — short instructions telling the LLM how to use each tool. Injected into the user message during block openings so the host can reference live weather and news naturally.
+- **Music curation prompt** (`music_selector.py`) — system prompt for LLM-driven track selection. Given the block description and a shortlist of pgvector candidates, the LLM picks the best track considering genre, mood, energy arc, and variety.
+
+The prompt builder (`prompt_builder.py`) assembles the final LLM call at runtime: system prompt = `core_identity_template` + `output_format_voice` + runtime context (datetime, location, block info, track history). User prompt = the segment-specific template + skill prompt results (weather data, news headlines) + track metadata + handoff host name.
 
 ### Testing block openings
 
@@ -317,7 +354,7 @@ web/                   # Vue 3 + Vite + Tailwind frontend
 docker/                # Dockerfiles, docker-compose, Icecast/Liquidsoap config
 docs/                  # Design docs (schedule engine, content pipeline)
 supabase/              # Database migrations
-tests/                 # pytest (251 tests)
+tests/                 # pytest (254 tests)
 ```
 
 ## License
